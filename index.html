@@ -214,7 +214,7 @@ dl.fields dd{white-space:pre-line}
   td[data-col="price"]{position:absolute;right:12px;top:14px}
   td[data-col="colour"]{order:2}
   td[data-col="where from"]{order:3}
-  td[data-col="native"]{order:4}
+  td[data-col="tags"]{order:4}
   tbody tr td[data-col="excess"]{display:none}
   td[data-col="description"]{order:6;flex-basis:100%;font-size:13px;color:var(--muted)}
   td[data-col="description"] .line2{display:inline;font-size:inherit}
@@ -283,7 +283,14 @@ const MONEY = /^([\d.,]+)\s*([A-Za-z]{3})$/;
 const BLANK_AS = { excess: '0' };
 // Columns whose bracketed notes are left out of the page, e.g. a price of "23 AUD (paid 20)" reads as "23 AUD".
 const DROP_BRACKETS = ['price'];
-const clean = (name, x) => DROP_BRACKETS.includes(name.toLowerCase()) ? x.replace(/\s*\(.*$/s, '') : x;
+// Tag columns show each value as a green pill; "no" means no tag.
+const TAG_COLS = ['tags'];
+const clean = (name, x) => {
+  const n = name.toLowerCase();
+  if (DROP_BRACKETS.includes(n)) return x.replace(/\s*\(.*$/s, '');
+  if (TAG_COLS.includes(n) && /^\s*no\s*$/i.test(x)) return '';
+  return x;
+};
 // Colour columns can list several colours separated by commas, e.g. "Pink, Orange".
 const SWATCH_COLS = ['colour', 'color'];
 const splitCell = (name, x) => x.split(SWATCH_COLS.includes(name.toLowerCase()) ? /[\n,]+/ : /\n+/).map(t => sentence(t.trim())).filter(Boolean);
@@ -304,7 +311,7 @@ const kindOf = c => {
 };
 const META = COLS.map((name, c) => ({ name, c, kind: kindOf(c) }));
 // Column order for the table, filters and detail panel; columns not listed follow in sheet order.
-const ORDER = ['flower', 'colour', 'description', 'where from', 'native', 'price', 'excess'];
+const ORDER = ['flower', 'colour', 'description', 'where from', 'tags', 'price', 'excess'];
 const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 ? ORDER.length + m.c : k; };
 const ORDERED = [...META].sort((a, b) => rank(a) - rank(b));
 const SHOWN = ORDERED.filter(m => m.kind !== 'empty');
@@ -473,6 +480,7 @@ const cell = (m, v, first) => {
   if (!v) return h('span', { class: 'dash' }, '—');
   if (first) return nameParts(v);
   if (chipColour.has(m.c)) return chip(m.c, v);
+  if (TAG_COLS.includes(m.name.toLowerCase())) return h('span', { class: 'swatches' }, splitCell(m.name, v).map(t => h('span', { class: 'pill yes chip-col' }, t)));
   if (swatchCols.has(m.c)) return h('span', { class: 'swatches' }, splitCell(m.name, v).map(t => h('span', { class: 'pill swatch-pill' }, swatch(t), t)));
   if (m.kind === 'bool') return [h('span', { class: 'pill wide-only ' + v.toLowerCase() }, v),
     /^yes$/i.test(v) ? h('span', { class: 'pill phone-only yes' }, m.name) : null];
@@ -630,7 +638,7 @@ function openDetail(idx) {
       h('dd', {}, !r.v[m.c] ? h('span', { class: 'dash' }, '—')
         : m.kind === 'url' ? h('a', { href: r.v[m.c], target: '_blank', rel: 'noopener' }, r.v[m.c])
         : m.kind === 'bool' ? h('span', { class: 'pill ' + r.v[m.c].toLowerCase() }, r.v[m.c])
-        : m.kind === 'text' && !chipColour.has(m.c) && !swatchCols.has(m.c) ? r.v[m.c] : cell(m, r.v[m.c]))
+        : m.kind === 'text' && !chipColour.has(m.c) && !swatchCols.has(m.c) && !TAG_COLS.includes(m.name.toLowerCase()) ? r.v[m.c] : cell(m, r.v[m.c]))
     ])),
     sibs.length ? h('div', { class: 'siblings' },
       h('h3', { class: 'eyebrow' }, `Other ${splitName(r.v[0]).filter(Boolean).join(', ')} entries (${sibs.length})`),
