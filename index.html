@@ -281,11 +281,14 @@ const BLANK = '\u0000blank';
 const MONEY = /^([\d.,]+)\s*([A-Za-z]{3})$/;
 // Values to show when a cell is blank, by column name.
 const BLANK_AS = { excess: '0' };
+// Columns whose bracketed notes are left out of the page, e.g. a price of "23 AUD (paid 20)" reads as "23 AUD".
+const DROP_BRACKETS = ['price'];
+const clean = (name, x) => DROP_BRACKETS.includes(name.toLowerCase()) ? x.replace(/\s*\(.*$/s, '') : x;
 // Colour columns can list several colours separated by commas, e.g. "Pink, Orange".
 const SWATCH_COLS = ['colour', 'color'];
 const splitCell = (name, x) => x.split(SWATCH_COLS.includes(name.toLowerCase()) ? /[\n,]+/ : /\n+/).map(t => sentence(t.trim())).filter(Boolean);
 const ROWS = DATA.rows.map((r, i) => {
-  const v = COLS.map((name, c) => sentence(String(r[c] ?? '').trim()) || BLANK_AS[name.toLowerCase()] || '');
+  const v = COLS.map((name, c) => sentence(clean(name, String(r[c] ?? '')).trim()) || BLANK_AS[name.toLowerCase()] || '');
   return { i, v, hay: v.join(' \n ').toLowerCase(),
     tok: v.map((x, c) => x ? [...new Set(splitCell(COLS[c], x))] : [BLANK]) };
 });
