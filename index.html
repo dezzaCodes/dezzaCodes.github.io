@@ -294,10 +294,14 @@ const clean = (name, x) => {
 // Colour columns can list several colours separated by commas, e.g. "Pink, Orange".
 const SWATCH_COLS = ['colour', 'color'];
 const splitCell = (name, x) => x.split(SWATCH_COLS.includes(name.toLowerCase()) ? /[\n,]+/ : /\n+/).map(t => sentence(t.trim())).filter(Boolean);
+// Number columns filtered by thresholds: a row with 3 matches "1+", "2+" and "3+"; 0 or blank matches none.
+const AT_LEAST = ['excess'];
+const atLeast = x => Array.from({ length: Math.max(0, Math.floor(Number(x)) || 0) }, (_, k) => `${k + 1}+`);
 const ROWS = DATA.rows.map((r, i) => {
   const v = COLS.map((name, c) => sentence(clean(name, String(r[c] ?? '')).trim()) || BLANK_AS[name.toLowerCase()] || '');
   return { i, v, hay: v.join(' \n ').toLowerCase(),
-    tok: v.map((x, c) => x ? [...new Set(splitCell(COLS[c], x))] : [BLANK]) };
+    tok: v.map((x, c) => AT_LEAST.includes(COLS[c].toLowerCase()) ? atLeast(x)
+      : x ? [...new Set(splitCell(COLS[c], x))] : [BLANK]) };
 });
 
 const kindOf = c => {
@@ -316,12 +320,12 @@ const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 
 const ORDERED = [...META].sort((a, b) => rank(a) - rank(b));
 const SHOWN = ORDERED.filter(m => m.kind !== 'empty');
 // Columns that get no filter list in the sidebar; search still covers them.
-const NO_FILTER = ['description'];
+const NO_FILTER = ['flower', 'description'];
 const FACETED = SHOWN.filter(m => m.kind !== 'url' && !NO_FILTER.includes(m.name.toLowerCase()));
 
 const money = s => { const m = s.match(MONEY); return [m[2].toUpperCase(), parseFloat(m[1].replace(/,/g, ''))]; };
 const cmpVal = (kind, x, y) => {
-  if (kind === 'number') return Number(x) - Number(y);
+  if (kind === 'number') return parseFloat(x) - parseFloat(y); // parseFloat so "2+" sorts as 2
   if (kind === 'money') { const [ac, an] = money(x), [bc, bn] = money(y); return ac.localeCompare(bc) || an - bn; }
   return x.localeCompare(y, undefined, { numeric: true, sensitivity: 'base' });
 };
@@ -430,7 +434,7 @@ for (const m of FACETED) {
     onclick: e => { e.preventDefault(); e.stopPropagation(); state.sel.delete(m.c); update(); } }, 'Clear');
   const summary = h('summary', {}, h('span', { class: 'name' }, m.name), nSel, clear);
   const kids = [summary];
-  if (toks.length > 10 && m.kind !== 'money') { // prices are a short sorted list, so no search box
+  if (toks.length > 10 && m.kind !== 'money' && m.kind !== 'number') { // prices are a short sorted list, so no search box
     kids.push(h('input', { class: 'facet-search', type: 'search', id: `fs-${m.c}`, placeholder: `Find a ${m.name.toLowerCase()}…`, 'aria-label': `Find a ${m.name.toLowerCase()}`,
       oninput: e => { const s = e.target.value.trim().toLowerCase(); items.forEach(it => it.label.hidden = !!s && !it.text.includes(s)); } }));
   }
