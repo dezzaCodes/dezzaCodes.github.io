@@ -88,10 +88,12 @@ form.entry{display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:var(--sun
 tbody tr:last-child td{border-bottom:0}
 form.entry .field{flex:1 1 120px;width:auto}
 form.entry .field.desc{flex-basis:100%}
-form.entry .field.date{flex:0 0 132px;min-width:0}
-form.entry .field.amount{flex:0 0 90px}
+/* Second line: the date and amount share the room left after the business menu and Add, the date
+   getting a bit more since "11/10/2026" is longer than most amounts. */
+form.entry .field.date{flex:4 1 112px;min-width:0}
+form.entry .field.amount{flex:3 1 72px;min-width:0}
 form.entry select.field{flex:0 0 auto}
-form.entry > .btn{flex:0 0 auto;margin-left:auto}
+form.entry > .btn{flex:0 0 auto}
 tr.editing td{padding:0;background:var(--sunk)}
 tr.editing .actions{flex:1 1 100%;display:flex;gap:8px;justify-content:flex-end}
 td .when{display:block;font-size:12.5px;color:var(--muted)}
@@ -123,12 +125,14 @@ tr.editing .actions .del{margin-right:auto;color:var(--loss)}
   .tiles{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
   .tile{padding:12px 14px}
   .tile.result{grid-column:1/-1}
-  /* Phones: date, amount, business and Add share one line; the date takes what's left. */
-  form.entry{gap:6px}
-  form.entry .field{padding-inline:7px}
-  form.entry .field.date{flex:1 1 0;min-width:102px}
-  form.entry .field.amount{flex-basis:64px}
-  form.entry > .btn{padding-inline:12px}
+  /* Phones: date, amount, business and Add share one line. */
+  form.entry{gap:5px}
+  form.entry .field{padding-inline:6px}
+  form.entry .field:not(.desc),form.entry > .btn{font-size:13px}
+  form.entry select.field{padding-right:2px}
+  form.entry .field.date{flex-basis:96px;min-width:96px}
+  form.entry .field.amount{flex-basis:62px}
+  form.entry > .btn{padding-inline:10px}
   .connect form{flex-direction:column}
 }
 </style>
