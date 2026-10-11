@@ -69,6 +69,11 @@ input:focus-visible,button:focus-visible,tr:focus-visible{outline:2px solid var(
 .cat.juju{background:var(--clay-soft);color:var(--clay)}
 select.field{width:auto;padding-right:6px}
 .cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
+/* Phones: one list at a time, picked with these tabs. */
+.ledger-tabs{display:none;gap:4px;padding:3px;margin-bottom:16px;background:var(--sunk);border:1px solid var(--line);border-radius:12px}
+.ledger-tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;font:600 14px var(--body);color:var(--muted);background:none;border:0;border-radius:9px;padding:7px 8px;cursor:pointer}
+.ledger-tabs button small{font:500 12.5px var(--mono);font-variant-numeric:tabular-nums}
+.ledger-tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .ledger h2{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font:400 24px/1.2 var(--display);margin:0 0 10px}
 .ledger h2 small{font:500 14px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
 .box{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
@@ -109,6 +114,8 @@ tr.editing .actions .del{margin-right:auto;color:var(--loss)}
 
 @media (max-width:760px){
   .cols{grid-template-columns:minmax(0,1fr)}
+  .ledger-tabs{display:flex}
+  .cols[data-show="income"] #expense,.cols[data-show="expense"] #income{display:none}
 }
 @media (max-width:520px){
   .wrap{padding-block:18px 32px}
@@ -153,7 +160,8 @@ tr.editing .actions .del{margin-right:auto;color:var(--loss)}
   <div id="app" hidden>
     <div class="show"><span class="eyebrow">Show</span><div class="toggles" id="toggles" role="group" aria-label="Show"></div></div>
     <div class="tiles" id="tiles"></div>
-    <div class="cols">
+    <div class="ledger-tabs" id="ledgerTabs" role="tablist" aria-label="List"></div>
+    <div class="cols" id="cols">
       <section class="ledger" id="income"></section>
       <section class="ledger" id="expense"></section>
     </div>
@@ -276,6 +284,9 @@ const totals = d => {
 };
 
 let editing = null; // id of the entry being edited
+// Which list phones show; wider screens show both side by side.
+const LEDGER_KEY = 'flower-ledger-list';
+let ledgerShown = (() => { try { return localStorage.getItem(LEDGER_KEY) === 'expense' ? 'expense' : 'income'; } catch { return 'income'; } })();
 
 function render() {
   renderStatus();
@@ -290,6 +301,11 @@ function render() {
       h('span', { class: 'eyebrow' }, net >= 0 ? 'Profit' : 'Loss'), h('span', { class: 'v' }, fmt(net))),
   );
   for (const type of ['income', 'expense']) renderLedger(d, type, t[type]);
+  document.getElementById('cols').dataset.show = ledgerShown;
+  document.getElementById('ledgerTabs').replaceChildren(...['income', 'expense'].map(type =>
+    h('button', { type: 'button', role: 'tab', 'aria-selected': String(ledgerShown === type), 'aria-controls': type,
+      onclick: () => { ledgerShown = type; try { localStorage.setItem(LEDGER_KEY, type); } catch {} editing = null; render(); } },
+      TITLES[type], h('small', {}, fmt(t[type])))));
 }
 
 function renderLedger(d, type, total) {
