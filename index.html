@@ -76,7 +76,6 @@ details.facet[open] summary::after{transform:rotate(-135deg);margin-top:4px}
 details.facet summary > .name{flex:1}
 .facet .clear{font-weight:400}
 .facet .n-sel{font:500 11px var(--body);background:var(--accent);color:var(--accent-ink);border-radius:99px;padding:1px 7px}
-.facet-search{width:100%;font:inherit;font-size:13px;margin:8px 0 4px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
 /* Each option is 30px tall with a 1px gap, so this shows four and scrolls the rest. */
 .opts{max-height:123px;overscroll-behavior:contain;overflow:auto;margin-top:6px;display:flex;flex-direction:column;gap:1px}
 .opt{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;height:30px;flex-shrink:0;padding:0 6px;border-radius:6px;cursor:pointer;font-size:14px}
@@ -85,7 +84,6 @@ details.facet summary > .name{flex:1}
 .opt > span:not(.c){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .opt .c{font:12px var(--mono);color:var(--faint);font-variant-numeric:tabular-nums}
 .opt.zero{opacity:.42}
-.opt .blank{font-style:italic;color:var(--muted)}
 
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:34px;margin-bottom:10px}
 .count{font-size:14px;color:var(--muted);margin-right:6px}
@@ -413,7 +411,8 @@ const facetsBox = document.getElementById('facets');
 for (const m of FACETED) {
   const counts = new Map();
   ROWS.forEach(r => r.tok[m.c].forEach(t => counts.set(t, (counts.get(t) || 0) + 1)));
-  const toks = [...counts.keys()].sort((a, b) => (a === BLANK) - (b === BLANK) || cmpVal(m.kind, a, b));
+  // Blank cells get no option of their own.
+  const toks = [...counts.keys()].filter(t => t !== BLANK).sort((a, b) => cmpVal(m.kind, a, b));
   const items = new Map();
   const list = h('div', { class: 'opts' });
   for (const t of toks) {
@@ -425,21 +424,15 @@ for (const m of FACETED) {
     }});
     const count = h('span', { class: 'c' });
     const label = h('label', { class: 'opt', for: cb.id }, cb,
-      t === BLANK ? h('span', { class: 'blank' }, '(blank)') : h('span', {}, swatchCols.has(m.c) ? [swatch(t), ' '] : null, t), count);
-    items.set(t, { label, cb, count, text: t === BLANK ? '' : t.toLowerCase() });
+      h('span', {}, swatchCols.has(m.c) ? [swatch(t), ' '] : null, t), count);
+    items.set(t, { label, cb, count });
     list.append(label);
   }
   const nSel = h('span', { class: 'n-sel', hidden: true });
   const clear = h('button', { class: 'linkbtn clear', type: 'button', hidden: true, 'aria-label': `Clear ${m.name} filter`,
     onclick: e => { e.preventDefault(); e.stopPropagation(); state.sel.delete(m.c); update(); } }, 'Clear');
   const summary = h('summary', {}, h('span', { class: 'name' }, m.name), nSel, clear);
-  const kids = [summary];
-  if (toks.length > 10 && m.kind !== 'money' && m.kind !== 'number') { // prices are a short sorted list, so no search box
-    kids.push(h('input', { class: 'facet-search', type: 'search', id: `fs-${m.c}`, placeholder: `Find a ${m.name.toLowerCase()}…`, 'aria-label': `Find a ${m.name.toLowerCase()}`,
-      oninput: e => { const s = e.target.value.trim().toLowerCase(); items.forEach(it => it.label.hidden = !!s && !it.text.includes(s)); } }));
-  }
-  kids.push(list);
-  const det = h('details', { class: 'facet', open: true }, kids);
+  const det = h('details', { class: 'facet', open: true }, summary, list);
   facetsBox.append(det);
   facetEls.set(m.c, { items, nSel, clear });
 }
