@@ -70,9 +70,10 @@ input:focus-visible,button:focus-visible,tr:focus-visible{outline:2px solid var(
 select.field{width:auto;padding-right:6px}
 .cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
 /* Phones: one list at a time, picked with these tabs. */
-.ledger-tabs{display:none;gap:3px;padding:3px;margin-bottom:10px;background:var(--sunk);border:1px solid var(--line);border-radius:10px}
-.ledger-tabs button{flex:1;font:600 14px var(--body);color:var(--muted);background:none;border:0;border-radius:7px;padding:6px 8px;cursor:pointer}
-.ledger-tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.ledger-tabs{display:none;align-items:baseline;gap:18px;margin:4px 0 10px}
+.ledger-tabs button{font:400 24px/1.2 var(--display);color:var(--faint);background:none;border:0;padding:0;cursor:pointer}
+.ledger-tabs button:hover{color:var(--muted)}
+.ledger-tabs button[aria-selected="true"]{color:var(--ink);cursor:default}
 .ledger h2{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font:400 24px/1.2 var(--display);margin:0 0 10px}
 .ledger h2 small{font:500 14px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
 .box{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
@@ -88,9 +89,9 @@ tbody tr:last-child td{border-bottom:0}
 form.entry .field{flex:1 1 120px;width:auto}
 form.entry .field.desc{flex-basis:100%}
 form.entry .field.date{flex:0 0 132px;min-width:0}
-form.entry .field.amount{flex:1 1 70px}
+form.entry .field.amount{flex:0 0 90px}
 form.entry select.field{flex:0 0 auto}
-form.entry > .btn{flex:0 0 auto}
+form.entry > .btn{flex:0 0 auto;margin-left:auto}
 tr.editing td{padding:0;background:var(--sunk)}
 tr.editing .actions{flex:1 1 100%;display:flex;gap:8px;justify-content:flex-end}
 td .when{display:block;font-size:12.5px;color:var(--muted)}
@@ -122,12 +123,12 @@ tr.editing .actions .del{margin-right:auto;color:var(--loss)}
   .tiles{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
   .tile{padding:12px 14px}
   .tile.result{grid-column:1/-1}
-  form.entry > .btn{flex:1 1 100%}
-  /* Phones: date, amount and business share one line. */
+  /* Phones: date, amount, business and Add share one line; the date takes what's left. */
   form.entry{gap:6px}
-  form.entry .field{padding-inline:8px}
-  form.entry .field.date{flex-basis:116px}
-  form.entry .field.amount{flex-basis:50px}
+  form.entry .field{padding-inline:7px}
+  form.entry .field.date{flex:1 1 0;min-width:102px}
+  form.entry .field.amount{flex-basis:64px}
+  form.entry > .btn{padding-inline:12px}
   .connect form{flex-direction:column}
 }
 </style>
@@ -334,7 +335,7 @@ function renderLedger(d, type, total) {
     if (!shown.has(entry.category)) { shown.add(entry.category); saveShown(); }
     change(d => d.entries.push(entry), `Add ${type}: ${text}`);
     document.querySelector(`#${type} input[name=desc]`).focus();
-  }}, desc, date, amt, cat, h('button', { class: 'btn', type: 'submit' }, type === 'income' ? 'Add income' : 'Add expense'));
+  }}, desc, date, amt, cat, h('button', { class: 'btn', type: 'submit', 'aria-label': type === 'income' ? 'Add income' : 'Add expense' }, 'Add'));
   amt.addEventListener('input', () => amt.setCustomValidity(''));
 
   document.getElementById(type).replaceChildren(
