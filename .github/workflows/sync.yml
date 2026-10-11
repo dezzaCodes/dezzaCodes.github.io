@@ -1,8 +1,11 @@
 name: Sync from Google Sheet
 
 on:
+  # 5am Sydney all year. Cron runs in UTC, so both candidate times are scheduled and the
+  # "when" job below lets only the one matching Sydney's current offset sync.
   schedule:
-    - cron: "0 19 * * *" # 19:00 UTC = 6am Sydney (5am in winter)
+    - cron: "0 18 * * *" # 5am Sydney during daylight saving (UTC+11)
+    - cron: "0 19 * * *" # 5am Sydney in winter (UTC+10)
   workflow_dispatch: {}
 
 permissions:
@@ -13,7 +16,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  when:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Check it's 5am in Sydney
+        id: check
+        run: |
+          offset=$(TZ=Australia/Sydney date +%z)
+          case "${{ github.event_name }}|${{ github.event.schedule }}|$offset" in
+            workflow_dispatch*|*"0 18 * * *|+1100"|*"0 19 * * *|+1000") echo "run=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Skipping: this schedule isn't 5am in Sydney today (offset $offset)." ;;
+          esac
+
   sync:
+    needs: when
+    if: needs.when.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
