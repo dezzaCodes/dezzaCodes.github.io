@@ -1,8 +1,8 @@
-"""Refresh the Flower Inventory page data from its Google Sheet.
+"""Refresh the inventory pages from their Google Sheet, one tab per page (see TABS).
 
-Usage: SHEET_ID=... python3 sync.py
-Replaces the contents of <script type="application/json" id="flower-data"> in index.html,
-rewrites images.json (small thumbnails) and writes a high-resolution copy of each photo to photos/. Exits non-zero without writing anything if the sheet is not readable.
+Usage: SHEET_ID=... python3 sync.py [out_dir]
+Replaces the contents of <script type="application/json" id="sheet-data"> in each page,
+rewrites its thumbnails file and writes a high-resolution copy of each photo to photos/. Exits non-zero without writing anything if the sheet is not readable.
 The sheet ID comes from the environment so it never appears in this public repository.
 """
 import base64, csv, datetime, hashlib, io, json, os, re, sys, urllib.request
@@ -68,62 +68,79 @@ def photo(url, out_dir):
     return "data:image/webp;base64," + base64.b64encode(webp_bytes(small, WEBP_QUALITY)).decode(), {"src": name, "w": big.width, "h": big.height}, im.size
 
 
-def main(page="index.html", out_dir="."):
-    raw, ctype = get(SHEET + "/export?format=csv&gid=0")
+# Each sheet tab feeds one page: (tab gid, page, thumbnails file). The gid stays the same when a tab is renamed.
+TABS = [
+    ("0", "index.html", "images.json"),                # flowers
+    ("1990863409", "jujus.html", "juju-images.json"),  # jujus
+]
+
+
+def read_tab(gid, out_dir):
+    """Returns (columns, [(sheet row, cells)], thumbnails, photos, original sizes) for one tab."""
+    raw, ctype = get(SHEET + f"/export?format=csv&gid={gid}")
     text = raw.decode("utf-8")
     if "csv" not in ctype or text.lstrip().startswith("<"):
-        sys.exit("Sheet did not return CSV (probably no longer shared by link). Nothing published.")
+        sys.exit(f"Tab {gid} did not return CSV (sheet no longer shared by link, or tab deleted). Nothing published.")
     allrows = list(csv.reader(io.StringIO(text)))
     cols = allrows[0]
     # CSV row index i corresponds to sheet row i + 1; keep that link while dropping blank rows.
     kept = [(i + 1, r) for i, r in enumerate(allrows[1:], start=1) if any(c.strip() for c in r)]
     if not kept:
-        sys.exit("Sheet has no data rows. Nothing published.")
+        sys.exit(f"Tab {gid} has no data rows. Nothing published.")
 
-    html_view, _ = get(SHEET + "/htmlview/sheet?headers=true&gid=0")
-    title = sheet_title()
+    html_view, _ = get(SHEET + f"/htmlview/sheet?headers=true&gid={gid}")
     parser = SheetImages()
     parser.feed(html_view.decode("utf-8", "replace"))
 
     jobs = {k: parser.images[sheet_row] for k, (sheet_row, _) in enumerate(kept) if sheet_row in parser.images}
-    os.makedirs(os.path.join(out_dir, PHOTO_DIR), exist_ok=True)
     images, photos, sizes = {}, {}, []
     with ThreadPoolExecutor(8) as pool:
         for k, res in zip(jobs, pool.map(lambda u: _safe(photo, u, out_dir), jobs.values())):
             if res:
                 images[str(k)], photos[str(k)], size = res
                 sizes.append(size)
-    # Drop high-resolution files no longer used by any row.
-    keep = {os.path.basename(p["src"]) for p in photos.values()}
+    return cols, kept, images, photos, sizes
+
+
+def main(out_dir="."):
+    os.makedirs(os.path.join(out_dir, PHOTO_DIR), exist_ok=True)
+    title = sheet_title()
+    tabs = [(page, thumbs, *read_tab(gid, out_dir)) for gid, page, thumbs in TABS]
+
+    # Drop high-resolution files no longer used by any row of any tab.
+    keep = {os.path.basename(p["src"]) for *_, photos, _ in tabs for p in photos.values()}
     for f in os.listdir(os.path.join(out_dir, PHOTO_DIR)):
         if f not in keep:
             os.remove(os.path.join(out_dir, PHOTO_DIR, f))
 
-    data = {
-        "synced": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-        "columns": cols,
-        "rows": [r + [""] * (len(cols) - len(r)) for _, r in kept],
-        "images": len(images),
-        "photos": photos,
-        "sheet": SHEET + "/edit?usp=sharing",
-        "sheetTitle": title,
-    }
-    blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
-    html = open(page, encoding="utf-8").read()
-    pattern = r'(<script type="application/json" id="flower-data">)(.*?)(</script>)'
-    if not re.search(pattern, html, re.S):
-        sys.exit("Page has no flower-data block. Nothing published.")
-    html = re.sub(pattern, lambda m: m.group(1) + blob + m.group(3), html, count=1, flags=re.S)
+    synced = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    pattern = r'(<script type="application/json" id="sheet-data">)(.*?)(</script>)'
+    pages = {}
+    for page, thumbs, cols, kept, images, photos, sizes in tabs:
+        data = {
+            "synced": synced,
+            "columns": cols,
+            "rows": [r + [""] * (len(cols) - len(r)) for _, r in kept],
+            "images": len(images),
+            "photos": photos,
+            "sheet": SHEET + "/edit?usp=sharing",
+            "sheetTitle": title,
+        }
+        blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
+        html = open(page, encoding="utf-8").read()
+        if not re.search(pattern, html, re.S):
+            sys.exit(f"{page} has no sheet-data block. Nothing published.")
+        pages[page] = re.sub(pattern, lambda m: m.group(1) + blob + m.group(3), html, count=1, flags=re.S)
 
-    os.makedirs(out_dir, exist_ok=True)
-    open(os.path.join(out_dir, os.path.basename(page)), "w", encoding="utf-8").write(html)
-    json.dump(images, open(os.path.join(out_dir, "images.json"), "w"), separators=(",", ":"))
-    print(f"{len(cols)} columns, {len(kept)} rows, {len(images)} images "
-          f"({os.path.getsize(os.path.join(out_dir, 'images.json')) // 1024} KB thumbnails)")
-    if sizes:
-        widths = sorted(w for w, _ in sizes)
-        print(f"originals {widths[0]}-{widths[-1]}px wide (median {widths[len(widths) // 2]}); photos/ "
-              f"{sum(os.path.getsize(os.path.join(out_dir, PHOTO_DIR, f)) for f in keep) // 1024} KB")
+    for page, thumbs, cols, kept, images, photos, sizes in tabs:
+        open(os.path.join(out_dir, page), "w", encoding="utf-8").write(pages[page])
+        json.dump(images, open(os.path.join(out_dir, thumbs), "w"), separators=(",", ":"))
+        print(f"{page}: {len(cols)} columns, {len(kept)} rows, {len(images)} images "
+              f"({os.path.getsize(os.path.join(out_dir, thumbs)) // 1024} KB thumbnails)")
+        if sizes:
+            widths = sorted(w for w, _ in sizes)
+            print(f"  originals {widths[0]}-{widths[-1]}px wide (median {widths[len(widths) // 2]})")
+    print(f"photos/ {sum(os.path.getsize(os.path.join(out_dir, PHOTO_DIR, f)) for f in keep) // 1024} KB")
 
 
 def sheet_title():
@@ -145,4 +162,4 @@ def _safe(fn, arg, *rest):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    main(*sys.argv[1:2])
