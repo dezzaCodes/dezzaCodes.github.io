@@ -111,7 +111,8 @@ const swatchCols = new Set(META.filter(m => SWATCH_COLS.includes(m.name.toLowerC
 const swatch = v => SWATCHES[v.toLowerCase()] ? h('span', { class: 'swatch', style: 'background:' + SWATCHES[v.toLowerCase()], 'aria-hidden': 'true' }) : null;
 const chip = (c, v) => h('span', { class: 'pill chip-col ' + (chipColour.get(c)?.get(v) || 'no') }, v);
 
-const state = { q: '', sort: { c: 0, dir: 1 }, sel: new Map(), view: [] };
+// Default sort: CFG.sortBy's column if the page names one, else the first column; ties go by the first column.
+const state = { q: '', sort: { c: Math.max(0, colIdx(CFG.sortBy)), dir: 1 }, sel: new Map(), view: [] };
 
 const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
