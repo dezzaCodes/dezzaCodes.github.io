@@ -1,4 +1,4 @@
-// Shared script for the inventory pages (index.html, jujus.html).
+// Shared script for the inventory pages (flower-inventory/, juju-inventory/).
 (() => {
 // Each page sets window.INVENTORY (its nouns and column settings) and holds its sheet rows in #sheet-data.
 const CFG = window.INVENTORY;
@@ -72,7 +72,8 @@ let IMGS = {};
 const HAS_IMG = DATA.images > 0;
 document.body.classList.toggle('no-img', !HAS_IMG);
 // High-resolution photo files by row ({src, w, h}), for the detail panel. The thumbnail shows behind each one until it loads.
-const PHOTOS = DATA.photos || {};
+// Photo paths in the data are relative to the site root; CFG.photoBase gets there from this page's folder.
+const PHOTOS = Object.fromEntries(Object.entries(DATA.photos || {}).map(([k, p]) => [k, { ...p, src: (CFG.photoBase || '') + p.src }]));
 // Start downloading a row's photo before its panel opens: on press, on keyboard focus, and for the neighbours of an open row.
 const preloaded = new Set();
 const preload = r => {

@@ -68,10 +68,10 @@ def photo(url, out_dir):
     return "data:image/webp;base64," + base64.b64encode(webp_bytes(small, WEBP_QUALITY)).decode(), {"src": name, "w": big.width, "h": big.height}, im.size
 
 
-# Each sheet tab feeds one page: (tab gid, page, thumbnails file). The gid stays the same when a tab is renamed.
+# Each sheet tab feeds one page: (tab gid, page, thumbnails file), relative to the site root. The gid stays the same when a tab is renamed.
 TABS = [
-    ("0", "index.html", "images.json"),                # flowers
-    ("1990863409", "jujus.html", "juju-images.json"),  # jujus
+    ("0", "flower-inventory/index.html", "flower-inventory/images.json"),          # flowers
+    ("1990863409", "juju-inventory/index.html", "juju-inventory/images.json"),     # jujus
 ]
 
 

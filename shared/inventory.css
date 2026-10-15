@@ -1,4 +1,4 @@
-/* Shared styles for the inventory pages (index.html, jujus.html). */
+/* Shared styles for the inventory pages (flower-inventory/, juju-inventory/). */
 :root{
   --bg:#F4F6F1; --surface:#FFFFFF; --sunk:#EBEFE7; --ink:#1E2620; --muted:#5D6A61; --faint:#8A968D;
   --line:#DCE2D8; --accent:#7B2E63; --accent-ink:#FFFFFF; --accent-soft:#F3E5EE;
