@@ -164,7 +164,11 @@ async function syncNow() {
     const before = Math.max(0, ...(await runs()).map(r => r.id));
     const res = await ghApi(`/actions/workflows/${WORKFLOW}/dispatches`, { ref: 'main' });
     if (res.status === 401 || res.status === 403 || res.status === 404) {
-      say('This device’s GitHub token can’t start a sync.', { href: WORKFLOW_URL, text: 'Run it on GitHub' });
+      // GitHub answers 401 for a dead token, 404 when the token doesn't cover this repo, 403 when it lacks Actions access.
+      const why = res.status === 401 ? 'This device’s GitHub token has expired or been deleted.'
+        : res.status === 404 ? 'This device’s GitHub token doesn’t include the dezzaCodes.github.io repository.'
+        : 'This device’s GitHub token needs Actions set to “Read and write”.';
+      say(why, { href: 'https://github.com/settings/personal-access-tokens', text: 'Edit the token' });
       return;
     }
     if (!res.ok) throw new Error(`GitHub said ${res.status}`);
