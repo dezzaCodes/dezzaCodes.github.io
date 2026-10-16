@@ -57,6 +57,8 @@ aside.filters{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);max-
 .eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .linkbtn{background:none;border:0;padding:0;font:inherit;font-size:13px;color:var(--accent);cursor:pointer}
 .linkbtn:hover{text-decoration:underline}
+.sub .sync-btn{font-size:inherit}
+.sync-status{color:var(--muted)}
 details.facet{border-top:1px solid var(--line);padding-block:10px}
 details.facet summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:600}
 details.facet summary::-webkit-details-marker{display:none}

@@ -131,12 +131,65 @@ const fill = (el, ...kids) => el.replaceChildren(...kids.flat().filter(k => k !=
 
 // ---------- header ----------
 const synced = DATA.synced ? new Date(DATA.synced) : null;
+const syncStatus = h('span', { class: 'sync-status', role: 'status' });
+const syncBtn = h('button', { class: 'linkbtn sync-btn', type: 'button', onclick: () => syncNow() }, 'Sync now');
 document.getElementById('sub').append(
   h('b', {}, ROWS.length), ` ${CFG.plural}`,
-  synced ? ` · synced ${synced.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}` : '',
+  synced ? ` · synced ${synced.toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}` : '',
   ...(DATA.sheet ? [synced ? ' from ' : ' · From ', h('a', { href: DATA.sheet, target: '_blank', rel: 'noopener' },
-    DATA.sheetTitle || 'the Google Sheet')] : [])
+    DATA.sheetTitle || 'the Google Sheet')] : []),
+  ' · ', syncBtn, syncStatus
 );
+
+// ---------- sync now ----------
+// Runs the repo's sync workflow with the GitHub token CJ Money saved on this device (it needs Actions: Read and
+// write on this repo), follows the run, then reloads once GitHub Pages serves the new data. Without a usable token
+// it opens the workflow on GitHub, where "Run workflow" does the same.
+const SITE_REPO = 'dezzaCodes/dezzaCodes.github.io', WORKFLOW = 'sync.yml';
+const WORKFLOW_URL = `https://github.com/${SITE_REPO}/actions/workflows/${WORKFLOW}`;
+const savedToken = () => { try { return localStorage.getItem('flower-ledger-token'); } catch { return null; } };
+const ghApi = (path, body) => fetch(`https://api.github.com/repos/${SITE_REPO}${path}`, {
+  method: body ? 'POST' : 'GET', cache: 'no-store', body: body ? JSON.stringify(body) : undefined,
+  headers: { Authorization: `Bearer ${savedToken()}`, Accept: 'application/vnd.github+json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+});
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const say = (msg, link) => fill(syncStatus, msg ? [' ', msg] : [], link ? [' ', h('a', { href: link.href, target: '_blank', rel: 'noopener' }, link.text)] : []);
+async function syncNow() {
+  if (!savedToken()) { window.open(WORKFLOW_URL, '_blank', 'noopener'); return; }
+  syncBtn.disabled = true; syncBtn.hidden = true; say('Starting sync…');
+  try {
+    const runs = async () => (await (await ghApi(`/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=5`)).json()).workflow_runs || [];
+    // While waiting, a failed check (a dropped connection, say) is retried on the next round.
+    const tryRuns = async () => { try { return await runs(); } catch { return []; } };
+    const before = Math.max(0, ...(await runs()).map(r => r.id));
+    const res = await ghApi(`/actions/workflows/${WORKFLOW}/dispatches`, { ref: 'main' });
+    if (res.status === 401 || res.status === 403 || res.status === 404) {
+      say('This device’s GitHub token can’t start a sync.', { href: WORKFLOW_URL, text: 'Run it on GitHub' });
+      return;
+    }
+    if (!res.ok) throw new Error(`GitHub said ${res.status}`);
+    let run;
+    for (let t = 0; t < 120; t++) { // up to about 8 minutes
+      await wait(4000);
+      run = (await tryRuns()).find(r => r.id > before) || run;
+      if (!run) continue;
+      if (run.status !== 'completed') { say('Syncing from the sheet…'); continue; }
+      if (run.conclusion !== 'success') { say('Sync failed.', { href: run.html_url, text: 'See why' }); return; }
+      break;
+    }
+    if (!run || run.status !== 'completed') { say('Sync is taking a while.', { href: WORKFLOW_URL, text: 'Check on GitHub' }); return; }
+    say('Publishing…');
+    for (let t = 0; t < 60; t++) { // GitHub Pages usually republishes within a minute or two
+      await wait(5000);
+      const page = await fetch(location.pathname, { cache: 'no-store' }).then(r => r.text(), () => '');
+      const m = page.match(/"synced": "([^"]+)"/);
+      if (m && m[1] !== DATA.synced) { location.reload(); return; }
+    }
+    say('Synced. Reload in a minute to see it.');
+  } catch (e) {
+    say(`Couldn’t sync (${e.message}).`, { href: WORKFLOW_URL, text: 'Run it on GitHub' });
+  } finally { syncBtn.disabled = false; syncBtn.hidden = false; }
+}
 
 // ---------- filtering ----------
 const passes = (r, skip) => {
