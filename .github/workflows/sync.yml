@@ -39,16 +39,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pillow anthropic google-auth requests
-      - name: Fill empty flower colours from their photos
-        # Asks Claude for the colour of each flower with a photo but no colour, and writes it into the sheet.
-        # Does nothing until both secrets exist; a failure here never stops the sync.
-        continue-on-error: true
-        env:
-          SHEET_ID: ${{ secrets.SHEET_ID }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
-        run: python fill_colours.py
+      - run: pip install pillow
       - name: Pull each sheet tab into its page and thumbnails
         env:
           SHEET_ID: ${{ secrets.SHEET_ID }}
