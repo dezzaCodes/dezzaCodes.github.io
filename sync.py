@@ -9,7 +9,6 @@ import base64, csv, datetime, hashlib, io, json, os, re, sys, urllib.request
 import html as html_lib
 from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
-from PIL import Image, ImageOps
 
 SHEET = "https://docs.google.com/spreadsheets/d/" + os.environ["SHEET_ID"]
 IMG_WIDTH, WEBP_QUALITY = 360, 70          # thumbnails, inlined in images.json
@@ -52,6 +51,7 @@ def webp_bytes(im, quality):
 def photo(url, out_dir):
     """Downloads the original image once and returns (thumbnail data URI, {src, w, h} of the high-resolution file, original size).
     The high-resolution file is named by a hash of the original, so an unchanged photo is not re-encoded."""
+    from PIL import Image, ImageOps  # imported here so the sheet-reading helpers work without Pillow
     base = re.sub(r"=[^=/]*$", "", url)
     try:
         raw, _ = get(base + "=s0")  # =s0 asks Google for the original size
