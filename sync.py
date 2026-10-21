@@ -103,11 +103,12 @@ def read_tab(gid, out_dir):
     return cols, kept, images, photos, sizes
 
 
-def added_dates(old, cols, rows, today):
-    """The date each row was first synced, carried over from the page's previous data (old) by matching rows:
-    first an identical row, then the row at the same position if most of its cells are unchanged (an edit,
-    such as a colour or name filled in), then the most similar unmatched row anywhere (an edited row that
-    moved). Rows that match nothing are new and get today's date. Photo links are ignored."""
+def added_dates(old, cols, rows, today, old_photos=None, new_photos=None):
+    """The date each row was first synced, carried over from the page's previous data (old).
+    A row's photo is its key: a row whose photo (old_photos/new_photos: a photo key or None per row) was in
+    the previous sync keeps that row's date. Rows left over (no photo, or a photo whose previous row is gone)
+    fall back to matching text: an identical row, then the row at the same position if most of its cells are
+    unchanged, then the most similar unmatched row anywhere. Rows that match nothing get today's date."""
     old_rows, old_dates = (old or {}).get("rows", []), (old or {}).get("added", [])
     if len(old_dates) != len(old_rows):
         old_dates = [None] * len(old_rows)
@@ -128,16 +129,32 @@ def added_dates(old, cols, rows, today):
     def take(i, j):
         used.add(j)
         dates[i] = old_dates[j]
+    old_by_photo = {}  # several rows can share a photo
+    for j, ph in enumerate(old_photos or []):
+        if ph and j < len(old_keys):
+            old_by_photo.setdefault(ph, []).append(j)
+    for i, ph in enumerate(new_photos or []):  # same photo: the old row at the same position, else the first free one
+        if ph and i < len(new_keys):
+            free_rows = [j for j in old_by_photo.get(ph, []) if j not in used]
+            if free_rows:
+                take(i, i if i in free_rows else free_rows[0])
+    # Rows left over are matched by text. A row with a photo that wasn't there before is new, so it can't take
+    # an old row that had a photo, unless most photos changed at once (the photo files were re-encoded).
+    has_photo = lambda photos, i: bool(photos and i < len(photos) and photos[i])
+    with_photo = sum(has_photo(new_photos, i) for i in range(len(new_keys)))
+    photos_changed = with_photo and sum(d is not None for d in dates) < with_photo / 2
+    free = lambda i, j: j not in used and (photos_changed or not (has_photo(new_photos, i) and has_photo(old_photos, j)))
     for i, k in enumerate(new_keys):  # identical rows
-        j = next((j for j, o in enumerate(old_keys) if j not in used and o == k), None)
-        if j is not None:
-            take(i, j)
+        if dates[i] is None:
+            j = next((j for j, o in enumerate(old_keys) if free(i, j) and o == k), None)
+            if j is not None:
+                take(i, j)
     for i, k in enumerate(new_keys):  # same position, mostly unchanged
-        if dates[i] is None and i < len(old_keys) and i not in used and similarity(old_keys[i], k) >= 0.5:
+        if dates[i] is None and i < len(old_keys) and free(i, i) and similarity(old_keys[i], k) >= 0.5:
             take(i, i)
     for i, k in enumerate(new_keys):  # most similar unmatched row elsewhere
         if dates[i] is None:
-            best = max((j for j in range(len(old_keys)) if j not in used), key=lambda j: similarity(old_keys[j], k), default=None)
+            best = max((j for j in range(len(old_keys)) if free(i, j)), key=lambda j: similarity(old_keys[j], k), default=None)
             if best is not None and similarity(old_keys[best], k) >= 0.6:
                 take(i, best)
     return [d or today for d in dates]
@@ -168,12 +185,20 @@ def main(out_dir="."):
         except ValueError:
             old = None
         rows = [r + [""] * (len(cols) - len(r)) for _, r in kept]
+        # Each row's photo key: a hash of its thumbnail (thumbnails are made the same way every sync).
+        photo_key = lambda uri: hashlib.md5(uri.encode()).hexdigest() if uri else None
+        try:
+            old_thumbs = json.load(open(thumbs))
+        except (OSError, ValueError):
+            old_thumbs = {}
+        old_photos = [photo_key(old_thumbs.get(str(j))) for j in range(len((old or {}).get("rows", [])))]
+        new_photos = [photo_key(images.get(str(i))) for i in range(len(rows))]
         data = {
             "synced": synced,
             "columns": cols,
             "rows": rows,
             # The Sydney date each row first appeared in a sync, by row.
-            "added": added_dates(old, cols, rows, today),
+            "added": added_dates(old, cols, rows, today, old_photos, new_photos),
             "images": len(images),
             "photos": photos,
             "sheet": SHEET + "/edit?usp=sharing",
