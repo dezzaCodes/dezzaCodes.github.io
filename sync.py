@@ -9,6 +9,7 @@ import base64, csv, datetime, hashlib, io, json, os, re, sys, urllib.request
 import html as html_lib
 from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
+from zoneinfo import ZoneInfo
 
 SHEET = "https://docs.google.com/spreadsheets/d/" + os.environ["SHEET_ID"]
 IMG_WIDTH, WEBP_QUALITY = 360, 70          # thumbnails, inlined in images.json
@@ -102,6 +103,46 @@ def read_tab(gid, out_dir):
     return cols, kept, images, photos, sizes
 
 
+def added_dates(old, cols, rows, today):
+    """The date each row was first synced, carried over from the page's previous data (old) by matching rows:
+    first an identical row, then the row at the same position if most of its cells are unchanged (an edit,
+    such as a colour or name filled in), then the most similar unmatched row anywhere (an edited row that
+    moved). Rows that match nothing are new and get today's date. Photo links are ignored."""
+    old_rows, old_dates = (old or {}).get("rows", []), (old or {}).get("added", [])
+    if len(old_dates) != len(old_rows):
+        old_dates = [None] * len(old_rows)
+
+    def cells(cs, r):
+        skip = {i for i, c in enumerate(cs) if c.strip().lower() == "image"}
+        return tuple("" if i in skip else str(c).strip().lower() for i, c in enumerate(r))
+
+    def similarity(a, b):
+        """Share of the cells filled in either row that are equal in both."""
+        pairs = [(x, y) for x, y in zip(a, b) if x or y] + [(x, "") for x in a[len(b):] if x] + [("", y) for y in b[len(a):] if y]
+        return sum(x == y for x, y in pairs) / len(pairs) if pairs else 1.0
+
+    old_keys = [cells(old.get("columns", []), r) for r in old_rows] if old else []
+    new_keys = [cells(cols, r) for r in rows]
+    used, dates = set(), [None] * len(rows)
+
+    def take(i, j):
+        used.add(j)
+        dates[i] = old_dates[j]
+    for i, k in enumerate(new_keys):  # identical rows
+        j = next((j for j, o in enumerate(old_keys) if j not in used and o == k), None)
+        if j is not None:
+            take(i, j)
+    for i, k in enumerate(new_keys):  # same position, mostly unchanged
+        if dates[i] is None and i < len(old_keys) and i not in used and similarity(old_keys[i], k) >= 0.5:
+            take(i, i)
+    for i, k in enumerate(new_keys):  # most similar unmatched row elsewhere
+        if dates[i] is None:
+            best = max((j for j in range(len(old_keys)) if j not in used), key=lambda j: similarity(old_keys[j], k), default=None)
+            if best is not None and similarity(old_keys[best], k) >= 0.6:
+                take(i, best)
+    return [d or today for d in dates]
+
+
 def main(out_dir="."):
     os.makedirs(os.path.join(out_dir, PHOTO_DIR), exist_ok=True)
     title = sheet_title()
@@ -113,23 +154,32 @@ def main(out_dir="."):
         if f not in keep:
             os.remove(os.path.join(out_dir, PHOTO_DIR, f))
 
-    synced = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    now = datetime.datetime.now(datetime.timezone.utc)
+    synced = now.isoformat(timespec="seconds")
+    today = now.astimezone(ZoneInfo("Australia/Sydney")).date().isoformat()
     pattern = r'(<script type="application/json" id="sheet-data">)(.*?)(</script>)'
     pages = {}
     for page, thumbs, cols, kept, images, photos, sizes in tabs:
+        html = open(page, encoding="utf-8").read()
+        if not re.search(pattern, html, re.S):
+            sys.exit(f"{page} has no sheet-data block. Nothing published.")
+        try:
+            old = json.loads(re.search(pattern, html, re.S).group(2))
+        except ValueError:
+            old = None
+        rows = [r + [""] * (len(cols) - len(r)) for _, r in kept]
         data = {
             "synced": synced,
             "columns": cols,
-            "rows": [r + [""] * (len(cols) - len(r)) for _, r in kept],
+            "rows": rows,
+            # The Sydney date each row first appeared in a sync, by row.
+            "added": added_dates(old, cols, rows, today),
             "images": len(images),
             "photos": photos,
             "sheet": SHEET + "/edit?usp=sharing",
             "sheetTitle": title,
         }
         blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
-        html = open(page, encoding="utf-8").read()
-        if not re.search(pattern, html, re.S):
-            sys.exit(f"{page} has no sheet-data block. Nothing published.")
         pages[page] = re.sub(pattern, lambda m: m.group(1) + blob + m.group(3), html, count=1, flags=re.S)
 
     for page, thumbs, cols, kept, images, photos, sizes in tabs:

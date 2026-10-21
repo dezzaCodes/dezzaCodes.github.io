@@ -11,7 +11,9 @@ const sentence = s => s.split('\n').map(l => {
   l = l.charAt(0).toUpperCase() + l.slice(1);
   return l.replace(PROPER_RE, m => PROPER.find(p => p.toLowerCase() === m.toLowerCase().replace(/\s+/g, ' ')) || m);
 }).join('\n');
-const COLS = DATA.columns.map(c => sentence(String(c)));
+// The sync records the date each row first appeared ("added"); it becomes an extra Added column.
+const HAS_ADDED = Array.isArray(DATA.added) && DATA.added.length === DATA.rows.length;
+const COLS = [...DATA.columns.map(c => sentence(String(c))), ...(HAS_ADDED ? ['Added'] : [])];
 const BLANK = '\u0000blank';
 const MONEY = /^([\d.,]+)\s*([A-Za-z]{3})$/;
 // Values to show when a cell is blank, by column name.
@@ -36,6 +38,7 @@ const splitCell = (name, x) => x.split(SWATCH_COLS.includes(name.toLowerCase()) 
 const AT_LEAST = CFG.atLeast || [];
 const atLeast = x => Array.from({ length: Math.max(0, Math.floor(Number(x)) || 0) }, (_, k) => `${k + 1}+`);
 const ROWS = DATA.rows.map((r, i) => {
+  if (HAS_ADDED) r = [...DATA.columns.map((_, c) => r[c]), DATA.added[i]];
   const v = COLS.map((name, c) => sentence(clean(name, String(r[c] ?? '')).trim()) || BLANK_AS[name.toLowerCase()] || '');
   return { i, v, hay: v.join(' \n ').toLowerCase(),
     tok: v.map((x, c) => AT_LEAST.includes(COLS[c].toLowerCase()) ? atLeast(x)
@@ -49,6 +52,7 @@ const kindOf = c => {
   if (vals.every(v => v !== '' && !isNaN(Number(v)))) return 'number';
   if (vals.every(v => MONEY.test(v))) return 'money';
   if (vals.every(v => /^(yes|no)$/i.test(v))) return 'bool';
+  if (vals.every(v => /^\d{4}-\d{2}-\d{2}$/.test(v))) return 'date';
   return 'text';
 };
 const META = COLS.map((name, c) => ({ name, c, kind: kindOf(c) }));
@@ -112,7 +116,7 @@ const swatch = v => SWATCHES[v.toLowerCase()] ? h('span', { class: 'swatch', sty
 const chip = (c, v) => h('span', { class: 'pill chip-col ' + (chipColour.get(c)?.get(v) || 'no') }, v);
 
 // Default sort: CFG.sortBy's column if the page names one, else the first column; ties go by the first column.
-const state = { q: '', sort: { c: Math.max(0, colIdx(CFG.sortBy)), dir: 1 }, sel: new Map(), view: [] };
+const state = { q: '', sort: { c: Math.max(0, colIdx(CFG.sortBy)), dir: CFG.sortDir || 1 }, sel: new Map(), view: [] };
 
 const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
@@ -283,6 +287,7 @@ const cell = (m, v, first) => {
     /^yes$/i.test(v) ? h('span', { class: 'pill phone-only yes' }, m.name) : null];
   if (m.kind === 'number') return h('span', { class: 'num' }, v);
   if (m.kind === 'money') return h('span', { class: 'mono' }, v);
+  if (m.kind === 'date') return h('span', { class: 'mono' }, new Date(v + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }));
   if (m.kind === 'url') return h('a', { href: v, target: '_blank', rel: 'noopener', onclick: e => e.stopPropagation() }, 'Open ↗');
   const lines = v.split(/\n+/);
   return [lines[0], ...lines.slice(1).map(l => h('span', { class: 'line2' }, l))];
@@ -375,7 +380,7 @@ const renderBar = () => {
           // Yes/no columns get one option that puts the yeses first ("No" < "Yes", so descending).
           .flatMap(m => (m.kind === 'bool' ? [-1] : [1, -1]).map(dir => h('option', { value: `${m.c}:${dir}`, selected: state.sort.c === m.c && (m.kind === 'bool' || state.sort.dir === dir) || null },
             m.kind === 'bool' ? `${m.name} first`
-              : `${m.name} ${m.kind === 'number' || m.kind === 'money' ? (dir > 0 ? '(low–high)' : '(high–low)') : (dir > 0 ? '(A–Z)' : '(Z–A)')}`))))),
+              : `${m.name} ${m.kind === 'number' || m.kind === 'money' ? (dir > 0 ? '(low–high)' : '(high–low)') : m.kind === 'date' ? (dir > 0 ? '(oldest first)' : '(newest first)') : (dir > 0 ? '(A–Z)' : '(Z–A)')}`))))),
     h('span', { class: 'count' }, 'Showing ', h('b', {}, state.view.length), ' of ', h('b', {}, ROWS.length), ` ${CFG.plural}`),
     ...chips, totalEl());
   document.getElementById('clearAll').hidden = !n;
@@ -399,7 +404,7 @@ function update(toTop = true) {
   state.view = ROWS.filter(r => passes(r)).sort((a, b) => {
     const x = a.v[c], y = b.v[c];
     if (!x !== !y) return x ? -1 : 1; // blanks always last
-    return (x ? dir * cmpVal(kind, x, y) : 0) || (c !== 0 && a.v[0].localeCompare(b.v[0])) || a.i - b.i;
+    return (x ? dir * cmpVal(kind, x, y) : 0) || (c !== 0 && ((!a.v[0]) - (!b.v[0]) || a.v[0].localeCompare(b.v[0]))) || a.i - b.i;
   });
   renderHead(); renderBody(); renderBar(); updateFacets();
   if (toTop) scrollToTable();
