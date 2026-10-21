@@ -15,6 +15,10 @@ const TIME_ZONE = 'Australia/Sydney';
 const TIME_BUDGET_MS = 4.5 * 60 * 1000;
 
 function findRowDates() {
+  if (typeof Drive === 'undefined') {
+    throw new Error('The Drive API service is missing. In the left sidebar, click + next to Services, choose ' +
+      'Drive API (version v3, identifier "Drive"), click Add, then run findRowDates again.');
+  }
   const started = Date.now();
   const fileId = SpreadsheetApp.getActive().getId();
   const revisions = listRevisions(fileId);
