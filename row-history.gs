@@ -2,8 +2,8 @@
  * Row history: when did each flower row first appear in the sheet?
  *
  * Paste into the sheet's Extensions → Apps Script, add the "Drive API" service (Services +, Drive API, v3),
- * then run findRowDates. It reads every saved version of the flowers tab from the sheet's version history,
- * oldest first, follows each row from version to version (so a colour or name filled in later doesn't make a
+ * then run findRowDates. It reads the flowers tab as it was at the end of each day (plus the very first saved
+ * version) from the sheet's version history, oldest first, follows each row from version to version (so a colour or name filled in later doesn't make a
  * row look new), and writes each current row's first-seen time to a "Row history" tab. It never changes the
  * flowers tab. If it runs out of time (Apps Script stops scripts after 6 minutes) it saves its place; run it
  * again to continue. Run resetRowHistory to start over.
@@ -13,6 +13,7 @@ const FLOWERS_SHEET_ID = 0;        // the flowers tab's gid
 const OUTPUT_TAB = 'Row history';
 const TIME_ZONE = 'Australia/Sydney';
 const TIME_BUDGET_MS = 4.5 * 60 * 1000;
+const STATE_VERSION = 2;  // bump when the saved-progress format changes
 
 function findRowDates() {
   if (typeof Drive === 'undefined') {
@@ -21,9 +22,11 @@ function findRowDates() {
   }
   const started = Date.now();
   const fileId = SpreadsheetApp.getActive().getId();
-  const revisions = listRevisions(fileId);
-  const state = loadState() || { next: 0, rows: null, dates: null };
-  console.log(`${revisions.length} saved versions; starting at #${state.next + 1}.`);
+  const all = listRevisions(fileId);
+  const revisions = endOfDayRevisions(all);
+  let state = loadState();
+  if (!state || state.v !== STATE_VERSION || state.count !== revisions.length) state = { v: STATE_VERSION, count: revisions.length, next: 0, rows: null, dates: null, skipped: 0 };
+  console.log(`${all.length} saved versions; reading ${revisions.length} (one per day), starting at #${state.next + 1}.`);
 
   while (state.next < revisions.length) {
     if (Date.now() - started > TIME_BUDGET_MS) {
@@ -39,7 +42,7 @@ function findRowDates() {
       state.dates = carryDates(state.rows, state.dates, rows, rev.modifiedTime);
       state.rows = rows;
     } else {
-      console.log(`Version ${rev.id} (${rev.modifiedTime}) couldn't be read; skipped.`);
+      state.skipped++;
     }
     state.next++;
   }
@@ -50,7 +53,8 @@ function findRowDates() {
   const dates = carryDates(state.rows, state.dates, current, new Date().toISOString());
   writeOutput(now, current, dates);
   clearState();
-  const msg = `Done: ${current.length} rows dated from ${revisions.length} saved versions.`;
+  const msg = `Done: ${current.length} rows dated from ${revisions.length - state.skipped} of ${revisions.length} daily versions` +
+    (state.skipped ? ` (${state.skipped} couldn't be read; see the log).` : '.');
   console.log(msg);
   SpreadsheetApp.getActive().toast(msg, 'Row history', 10);
 }
@@ -75,20 +79,45 @@ function listRevisions(fileId) {
   return all.sort((a, b) => a.modifiedTime.localeCompare(b.modifiedTime));
 }
 
+/** The last version of each Sydney day, plus the very first version, oldest first. Rows only need dating to
+ *  the day, and Google saves a version for almost every edit, far too many to download them all. */
+function endOfDayRevisions(revisions) {
+  const lastOfDay = new Map();
+  revisions.forEach(r => lastOfDay.set(Utilities.formatDate(new Date(r.modifiedTime), TIME_ZONE, 'yyyy-MM-dd'), r));
+  const picked = [...lastOfDay.values()];
+  if (revisions.length && picked[0] !== revisions[0]) picked.unshift(revisions[0]);
+  return picked;
+}
+
+/** GET with retries when Google asks us to slow down (429) or has a hiccup (5xx). */
+function fetchWithRetry(url) {
+  const opts = { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true };
+  let res;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    res = UrlFetchApp.fetch(url, opts);
+    const code = res.getResponseCode();
+    if (code !== 429 && code < 500) return res;
+    Utilities.sleep(1000 * Math.pow(2, attempt));
+  }
+  return res;
+}
+
 /** The flowers tab of one saved version, as [sheet row number, cells] pairs; null if it can't be read. */
 function revisionRows(fileId, rev) {
   const links = rev.exportLinks || {};
-  const auth = { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true };
+  const fail = (what, res) => console.log(`Version ${rev.id} (${rev.modifiedTime}): ${what}` +
+    (res ? ` gave HTTP ${res.getResponseCode()}: ${res.getContentText().slice(0, 200)}` : ''));
   if (links['text/csv']) {
     const url = links['text/csv'].replace(/([?&])gid=\d+/, '$1') + `&gid=${FLOWERS_SHEET_ID}`;
-    const res = UrlFetchApp.fetch(url, auth);
+    const res = fetchWithRetry(url);
     if (res.getResponseCode() === 200) return dataRows(Utilities.parseCsv(res.getContentText()));
+    fail('CSV export', res);
   }
-  // Fallback: open the version as a temporary spreadsheet and read its first tab.
+  // Fallback: open the version as a temporary spreadsheet and read its flowers tab.
   const xlsx = links['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-  if (!xlsx) return null;
-  const res = UrlFetchApp.fetch(xlsx, auth);
-  if (res.getResponseCode() !== 200) return null;
+  if (!xlsx) { fail(`no export links (has: ${Object.keys(links).join(', ') || 'none'})`); return null; }
+  const res = fetchWithRetry(xlsx);
+  if (res.getResponseCode() !== 200) { fail('Excel export', res); return null; }
   const tmp = Drive.Files.create({ name: 'row-history temp', mimeType: MimeType.GOOGLE_SHEETS }, res.getBlob());
   try {
     const book = SpreadsheetApp.openById(tmp.id);
