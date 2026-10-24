@@ -59,7 +59,12 @@ const META = COLS.map((name, c) => ({ name, c, kind: kindOf(c) }));
 // Column order for the table, filters and detail panel; columns not listed follow in sheet order.
 const ORDER = CFG.order || [];
 const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 ? ORDER.length + m.c : k; };
-const ORDERED = [...META].sort((a, b) => rank(a) - rank(b));
+// A "sold" column marks sold items: anything typed in it (yes, a date, a ticked checkbox) except no/false/0.
+// It isn't shown as a column; sold rows are left out of the table and every count unless "Show sold" is on.
+const SOLD_C = META.findIndex(m => m.name.toLowerCase() === 'sold');
+ROWS.forEach(r => { r.sold = SOLD_C >= 0 && !!r.v[SOLD_C] && !/^(no|n|false|0|-)$/i.test(r.v[SOLD_C]); });
+const SOLD_N = ROWS.filter(r => r.sold).length;
+const ORDERED = META.filter(m => m.c !== SOLD_C).sort((a, b) => rank(a) - rank(b));
 const SHOWN = ORDERED.filter(m => m.kind !== 'empty');
 // Columns that get no filter list in the sidebar; search still covers them.
 const NO_FILTER = CFG.noFilter || [];
@@ -116,7 +121,12 @@ const swatch = v => SWATCHES[v.toLowerCase()] ? h('span', { class: 'swatch', sty
 const chip = (c, v) => h('span', { class: 'pill chip-col ' + (chipColour.get(c)?.get(v) || 'no') }, v);
 
 // Default sort: CFG.sortBy's column if the page names one, else the first column; ties go by the first column.
-const state = { q: '', sort: { c: Math.max(0, colIdx(CFG.sortBy)), dir: CFG.sortDir || 1 }, sel: new Map(), view: [] };
+const SHOW_SOLD_KEY = `${CFG.plural}-show-sold`;
+const state = { q: '', sort: { c: Math.max(0, colIdx(CFG.sortBy)), dir: CFG.sortDir || 1 }, sel: new Map(), view: [],
+  showSold: (() => { try { return localStorage.getItem(SHOW_SOLD_KEY) === '1'; } catch { return false; } })() };
+// How many rows the current sold setting allows, before search and filters.
+const inStock = () => (state.showSold ? ROWS.length : ROWS.length - SOLD_N);
+const soldPill = r => (r.sold ? h('span', { class: 'pill sold-pill' }, 'Sold') : null);
 
 const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
@@ -138,7 +148,7 @@ const synced = DATA.synced ? new Date(DATA.synced) : null;
 const syncStatus = h('span', { class: 'sync-status', role: 'status' });
 const syncBtn = h('button', { class: 'linkbtn sync-btn', type: 'button', onclick: () => syncNow() }, 'Sync now');
 document.getElementById('sub').append(
-  h('b', {}, ROWS.length), ` ${CFG.plural}`,
+  h('b', {}, ROWS.length - SOLD_N), ` ${CFG.plural}`, SOLD_N ? ` (${SOLD_N} sold)` : '',
   synced ? ` · synced ${synced.toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}` : '',
   ...(DATA.sheet ? [synced ? ' from ' : ' · From ', h('a', { href: DATA.sheet, target: '_blank', rel: 'noopener' },
     DATA.sheetTitle || 'the Google Sheet')] : []),
@@ -201,6 +211,7 @@ async function syncNow() {
 
 // ---------- filtering ----------
 const passes = (r, skip) => {
+  if (r.sold && !state.showSold) return false;
   if (state.q && !r.hay.includes(state.q)) return false;
   for (const [c, set] of state.sel) {
     if (c === skip || !set.size) continue;
@@ -295,7 +306,7 @@ const cell = (m, v, first) => {
 
 const tbody = document.getElementById('tbody');
 const renderBody = () => {
-  tbody.replaceChildren(...state.view.map((r, idx) => h('tr', { tabindex: 0,
+  tbody.replaceChildren(...state.view.map((r, idx) => h('tr', { tabindex: 0, class: r.sold ? 'sold' : null,
     onclick: () => openDetail(idx),
     onpointerdown: () => preload(r), onfocus: () => preload(r),
     onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(idx); } } },
@@ -305,7 +316,7 @@ const renderBody = () => {
       'data-col': m.name.toLowerCase(),
       'data-label': m.kind === 'number' ? m.name : null,
       'data-bool': m.kind === 'bool' ? (/^yes$/i.test(r.v[m.c]) ? 'yes' : 'no') : null,
-    }, cell(m, r.v[m.c], k === 0))))));
+    }, cell(m, r.v[m.c], k === 0), k === 0 ? soldPill(r) : null)))));
   document.getElementById('empty').hidden = state.view.length > 0;
 };
 
@@ -381,7 +392,10 @@ const renderBar = () => {
           .flatMap(m => (m.kind === 'bool' ? [-1] : [1, -1]).map(dir => h('option', { value: `${m.c}:${dir}`, selected: state.sort.c === m.c && (m.kind === 'bool' || state.sort.dir === dir) || null },
             m.kind === 'bool' ? `${m.name} first`
               : `${m.name} ${m.kind === 'number' || m.kind === 'money' ? (dir > 0 ? '(low–high)' : '(high–low)') : m.kind === 'date' ? (dir > 0 ? '(oldest first)' : '(newest first)') : (dir > 0 ? '(A–Z)' : '(Z–A)')}`))))),
-    h('span', { class: 'count' }, 'Showing ', h('b', {}, state.view.length), ' of ', h('b', {}, ROWS.length), ` ${CFG.plural}`),
+    h('span', { class: 'count' }, 'Showing ', h('b', {}, state.view.length), ' of ', h('b', {}, inStock()), ` ${CFG.plural}`),
+    SOLD_N ? h('button', { class: 'chip sold-toggle', type: 'button', 'aria-pressed': String(state.showSold),
+      onclick: () => { state.showSold = !state.showSold; try { localStorage.setItem(SHOW_SOLD_KEY, state.showSold ? '1' : '0'); } catch {} update(); } },
+      `${state.showSold ? 'Hide' : 'Show'} sold (${SOLD_N})`) : null,
     ...chips, totalEl());
   document.getElementById('clearAll').hidden = !n;
   syncToTop();
@@ -435,7 +449,7 @@ function openDetail(idx) {
       h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Next', disabled: idx === state.view.length - 1 || null, onclick: () => openDetail(idx + 1) }, '→'),
       close),
     HAS_IMG ? hero(r) : null,
-    h('h2', { id: 'sheetTitle' }, r.v[0] ? nameParts(r.v[0]) : '(untitled)'),
+    h('h2', { id: 'sheetTitle' }, r.v[0] ? nameParts(r.v[0]) : '(untitled)', soldPill(r)),
     h('dl', { class: 'fields' }, ORDERED.filter(m => m.c !== 0 && m.kind !== 'empty' && m.name.toLowerCase() !== 'image').flatMap(m => [
       h('dt', {}, m.name),
       h('dd', {}, !r.v[m.c] ? h('span', { class: 'dash' }, '—')

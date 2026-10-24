@@ -12,6 +12,7 @@ Sortable, filterable pages of every flower and juju in the inventory spreadsheet
 
 - `index.html` is the links page at the site root.
 - `flower-inventory/index.html` (the sheet's flowers tab) and `juju-inventory/index.html` (the jujus tab) are the inventory pages. Each holds its rows in a `sheet-data` JSON block and its settings (column order, chip and filter columns, wording) in `window.INVENTORY`.
+- A `sold` column in either tab marks items as sold (anything typed in it, e.g. yes, a date or a ticked checkbox, except no/false/0). Sold items are left out of the table, the counts and the total until **Show sold** is pressed, and then appear greyed out with a Sold label.
 - `shared/inventory.css` and `shared/inventory.js` are the shared look and behaviour of both inventory pages.
 - Each inventory folder's `images.json` holds that page's table thumbnails, resized to 360px WebP.
 - `cj-money/index.html` is the Money page: income, expenses and the profit or loss. Its figures are not in this public repository. They live in `ledger.json` in the private repo `dezzaCodes/flower-ledger`, which the page reads and writes through the GitHub API. Each device is connected once with a fine-grained token that has **Contents: Read and write** on that repo only, and the token stays in that browser.
