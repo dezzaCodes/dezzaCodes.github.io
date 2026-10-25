@@ -97,6 +97,13 @@ const ORDERED = META.filter(m => m.c !== SOLD_C && m.c !== DATE_ADDED_C).sort((a
 const SHOWN = ORDERED.filter(m => m.kind !== 'empty');
 // Columns that get no filter list in the sidebar; search still covers them.
 const NO_FILTER = (CFG.noFilter || []).map(cfgName);
+// Columns shown inside another column's cell instead of their own, e.g. { excess: 'description' } adds
+// "2 excess" under the description. They keep their filter and their line in the detail panel.
+const INLINE = Object.fromEntries(Object.entries(CFG.inline || {}).map(([k, v]) => [k.toLowerCase(), v.toLowerCase()]));
+const TABLE = SHOWN.filter(m => !INLINE[m.name.toLowerCase()]);
+const extras = (r, m) => SHOWN.filter(x => INLINE[x.name.toLowerCase()] === m.name.toLowerCase())
+  .filter(x => r.v[x.c] && !(x.kind === 'number' && Number(r.v[x.c]) === 0))
+  .map(x => `${r.v[x.c]} ${x.name.toLowerCase()}`);
 const FACETED = SHOWN.filter(m => m.kind !== 'url' && !NO_FILTER.includes(m.name.toLowerCase()));
 
 const money = s => { const m = s.match(MONEY); return [m[2].toUpperCase(), parseFloat(m[1].replace(/,/g, ''))]; };
@@ -165,7 +172,7 @@ const h = (tag, attrs = {}, ...kids) => {
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), val);
     else el.setAttribute(k, val === true ? '' : val);
   }
-  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid instanceof Node ? kid : String(kid));
+  for (const kid of kids.flat(Infinity)) if (kid != null && kid !== false) el.append(kid instanceof Node ? kid : String(kid));
   return el;
 };
 
@@ -300,7 +307,7 @@ const updateFacets = () => {
 // ---------- table ----------
 const thead = document.getElementById('thead');
 const renderHead = () => {
-  thead.replaceChildren(...(HAS_IMG ? [h('th', { class: 'img-cell' }, h('span', { class: 'sr' }, 'Image'))] : []), ...SHOWN.map(m => {
+  thead.replaceChildren(...(HAS_IMG ? [h('th', { class: 'img-cell' }, h('span', { class: 'sr' }, 'Image'))] : []), ...TABLE.map(m => {
     const on = state.sort.c === m.c;
     return h('th', { 'aria-sort': on ? (state.sort.dir > 0 ? 'ascending' : 'descending') : null },
       h('button', { type: 'button', onclick: () => {
@@ -340,12 +347,13 @@ const renderBody = () => {
     onpointerdown: () => preload(r), onfocus: () => preload(r),
     onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(idx); } } },
     HAS_IMG ? h('td', { class: 'img-cell' }, h('span', { class: 'thumb-box' }, thumb(r, 'thumb'))) : null,
-    SHOWN.map((m, k) => h('td', {
-      class: [k === 0 ? 'first' : '', m.c === ADDED_C ? 'added-col' : '', !r.v[m.c] || (m.kind === 'number' && Number(r.v[m.c]) === 0) ? 'nil' : ''].join(' ').trim() || null,
+    TABLE.map((m, k) => { const ex = extras(r, m); return h('td', {
+      class: [k === 0 ? 'first' : '', m.c === ADDED_C ? 'added-col' : '', (!r.v[m.c] && !ex.length) || (m.kind === 'number' && Number(r.v[m.c]) === 0) ? 'nil' : ''].join(' ').trim() || null,
       'data-col': m.name.toLowerCase(),
       'data-label': m.kind === 'number' ? m.name : null,
       'data-bool': m.kind === 'bool' ? (/^yes$/i.test(r.v[m.c]) ? 'yes' : 'no') : null,
-    }, cell(m, r.v[m.c], k === 0), k === 0 ? soldPill(r) : null)))));
+    }, r.v[m.c] || !ex.length ? [cell(m, r.v[m.c], k === 0), ex.map(t => h('span', { class: 'line2' }, t))] : ex.join(' · '),
+      k === 0 ? soldPill(r) : null); }))));
   document.getElementById('empty').hidden = state.view.length > 0;
 };
 
