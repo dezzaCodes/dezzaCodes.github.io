@@ -6,7 +6,6 @@ file and writes a high-resolution copy of each photo to photos/. Exits non-zero 
 can't be read. The sheet ID comes from the environment so it never appears in this public repository.
 """
 import base64, csv, datetime, hashlib, io, json, os, re, sys, urllib.request
-import html as html_lib
 from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
 from zoneinfo import ZoneInfo
@@ -183,7 +182,6 @@ def added_dates(old, cols, rows, today, old_photos=None, new_photos=None):
 
 def main(out_dir="."):
     os.makedirs(os.path.join(out_dir, PHOTO_DIR), exist_ok=True)
-    title = sheet_title()
     tabs = [(page, thumbs, *read_tab(gid, out_dir)) for gid, page, thumbs in TABS]
 
     # Drop high-resolution files no longer used by any row of any tab.
@@ -223,7 +221,6 @@ def main(out_dir="."):
             "images": len(images),
             "photos": photos,
             "sheet": SHEET + "/edit?usp=sharing",
-            "sheetTitle": title,
         }
         blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
         pages[page] = re.sub(pattern, lambda m: m.group(1) + blob + m.group(3), html, count=1, flags=re.S)
@@ -232,16 +229,6 @@ def main(out_dir="."):
         open(os.path.join(out_dir, page), "w", encoding="utf-8").write(pages[page])
         json.dump(images, open(os.path.join(out_dir, thumbs), "w"), separators=(",", ":"))
         print(f"{page}: {len(cols)} columns, {len(rows)} rows, {len(images)} photos")
-
-
-def sheet_title():
-    """The spreadsheet's name, or "" if Google doesn't say."""
-    try:
-        page, _ = get(SHEET + "/htmlview")
-        m = re.search(r'property="og:title" content="([^"]*)"', page.decode("utf-8", "replace"))
-        return html_lib.unescape(m.group(1)).strip() if m else ""
-    except Exception:
-        return ""
 
 
 if __name__ == "__main__":
