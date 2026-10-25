@@ -11,8 +11,31 @@ const sentence = s => s.split('\n').map(l => {
   l = l.charAt(0).toUpperCase() + l.slice(1);
   return l.replace(PROPER_RE, m => PROPER.find(p => p.toLowerCase() === m.toLowerCase().replace(/\s+/g, ' ')) || m);
 }).join('\n');
-// The sync records the date each row first appeared ("added"); it becomes an extra Added column.
-const HAS_ADDED = Array.isArray(DATA.added) && DATA.added.length === DATA.rows.length;
+// The Added column: the sheet's own "date added" column where it has a date, otherwise the date the sync first
+// saw the row ("added" in the data). The sheet column itself isn't shown separately.
+const TRACKED = Array.isArray(DATA.added) && DATA.added.length === DATA.rows.length ? DATA.added : null;
+const DATE_ADDED_C = DATA.columns.findIndex(c => String(c).trim().toLowerCase() === 'date added');
+const sheetDates = (() => {
+  if (DATE_ADDED_C < 0) return [];
+  const vals = DATA.rows.map(r => String(r[DATE_ADDED_C] ?? '').trim());
+  const nums = vals.map(v => v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/)).filter(Boolean);
+  // Day-first unless some date only makes sense month-first (e.g. 10/25/2026).
+  const monthFirst = !nums.some(m => +m[1] > 12) && nums.some(m => +m[2] > 12);
+  const pad = n => String(n).padStart(2, '0');
+  return vals.map(v => {
+    let m = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+    m = v.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/);
+    if (m) {
+      const [day, month] = monthFirst ? [m[2], m[1]] : [m[1], m[2]];
+      return `${m[3].length === 2 ? '20' + m[3] : m[3]}-${pad(month)}-${pad(day)}`;
+    }
+    const t = v && Date.parse(v);
+    return t ? new Date(t).toLocaleDateString('en-CA') : '';
+  });
+})();
+const ADDED = TRACKED || DATE_ADDED_C >= 0 ? DATA.rows.map((_, i) => sheetDates[i] || (TRACKED && TRACKED[i]) || '') : null;
+const HAS_ADDED = !!ADDED;
 const COLS = [...DATA.columns.map(c => sentence(String(c))), ...(HAS_ADDED ? ['Added'] : [])];
 const BLANK = '\u0000blank';
 const MONEY = /^([\d.,]+)\s*([A-Za-z]{3})$/;
@@ -38,7 +61,7 @@ const splitCell = (name, x) => x.split(SWATCH_COLS.includes(name.toLowerCase()) 
 const AT_LEAST = CFG.atLeast || [];
 const atLeast = x => Array.from({ length: Math.max(0, Math.floor(Number(x)) || 0) }, (_, k) => `${k + 1}+`);
 const ROWS = DATA.rows.map((r, i) => {
-  if (HAS_ADDED) r = [...DATA.columns.map((_, c) => r[c]), DATA.added[i]];
+  if (HAS_ADDED) r = [...DATA.columns.map((_, c) => r[c]), ADDED[i]];
   const v = COLS.map((name, c) => sentence(clean(name, String(r[c] ?? '')).trim()) || BLANK_AS[name.toLowerCase()] || '');
   return { i, v, hay: v.join(' \n ').toLowerCase(),
     tok: v.map((x, c) => AT_LEAST.includes(COLS[c].toLowerCase()) ? atLeast(x)
@@ -64,7 +87,7 @@ const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 
 const SOLD_C = META.findIndex(m => m.name.toLowerCase() === 'sold');
 ROWS.forEach(r => { r.sold = SOLD_C >= 0 && !!r.v[SOLD_C] && !/^(no|n|false|0|-)$/i.test(r.v[SOLD_C]); });
 const SOLD_N = ROWS.filter(r => r.sold).length;
-const ORDERED = META.filter(m => m.c !== SOLD_C).sort((a, b) => rank(a) - rank(b));
+const ORDERED = META.filter(m => m.c !== SOLD_C && m.c !== DATE_ADDED_C).sort((a, b) => rank(a) - rank(b));
 const SHOWN = ORDERED.filter(m => m.kind !== 'empty');
 // Columns that get no filter list in the sidebar; search still covers them.
 const NO_FILTER = CFG.noFilter || [];
