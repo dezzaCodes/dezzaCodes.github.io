@@ -43,7 +43,6 @@ const HAS_ADDED = !!ADDED;
 // The sheet's own date column keeps a distinct name so lookups by name find the combined column.
 const COLS = [...DATA.columns.map((c, i) => sentence(String(c)) + (i === DATE_ADDED_C ? ' (sheet)' : '')), ...(HAS_ADDED ? [ADDED_LABEL] : [])];
 const ADDED_C = HAS_ADDED ? COLS.length - 1 : -1;
-const BLANK = '\u0000blank';
 const MONEY = /^([\d.,]+)\s*([A-Za-z]{3})$/;
 // Values to show when a cell is blank, by column name.
 const BLANK_AS = CFG.blankAs || {};
@@ -70,17 +69,14 @@ const ROWS = DATA.rows.map((r, i) => {
   if (HAS_ADDED) r = [...DATA.columns.map((_, c) => r[c]), ADDED[i]];
   const v = COLS.map((name, c) => sentence(clean(name, String(r[c] ?? '')).trim()) || BLANK_AS[name.toLowerCase()] || '');
   return { i, v, hay: v.join(' \n ').toLowerCase(),
-    tok: v.map((x, c) => AT_LEAST.includes(COLS[c].toLowerCase()) ? atLeast(x)
-      : x ? [...new Set(splitCell(COLS[c], x))] : [BLANK]) };
+    tok: v.map((x, c) => AT_LEAST.includes(COLS[c].toLowerCase()) ? atLeast(x) : [...new Set(splitCell(COLS[c], x))]) };
 });
 
 const kindOf = c => {
   const vals = ROWS.map(r => r.v[c]).filter(Boolean);
   if (!vals.length) return 'empty';
-  if (vals.every(v => /^https?:\/\//i.test(v))) return 'url';
   if (vals.every(v => v !== '' && !isNaN(Number(v)))) return 'number';
   if (vals.every(v => MONEY.test(v))) return 'money';
-  if (vals.every(v => /^(yes|no)$/i.test(v))) return 'bool';
   if (vals.every(v => /^\d{4}-\d{2}-\d{2}$/.test(v))) return 'date';
   return 'text';
 };
@@ -93,31 +89,27 @@ const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 
 const SOLD_C = META.findIndex(m => m.name.toLowerCase() === 'sold');
 ROWS.forEach(r => { r.sold = SOLD_C >= 0 && !!r.v[SOLD_C] && !/^(no|n|false|0|-)$/i.test(r.v[SOLD_C]); });
 const SOLD_N = ROWS.filter(r => r.sold).length;
-const ORDERED = META.filter(m => m.c !== SOLD_C && m.c !== DATE_ADDED_C).sort((a, b) => rank(a) - rank(b));
-const SHOWN = ORDERED.filter(m => m.kind !== 'empty');
+// The columns the page shows, in display order (the sold and sheet-date columns feed other features instead).
+const SHOWN = META.filter(m => m.c !== SOLD_C && m.c !== DATE_ADDED_C && m.kind !== 'empty').sort((a, b) => rank(a) - rank(b));
 // Columns that get no filter list in the sidebar; search still covers them.
 const NO_FILTER = (CFG.noFilter || []).map(cfgName);
-// Columns shown inside another column's cell instead of their own, e.g. { excess: 'description' } adds
-// "2 excess" under the description. They keep their filter and their line in the detail panel.
-const INLINE = Object.fromEntries(Object.entries(CFG.inline || {}).map(([k, v]) => [k.toLowerCase(), v.toLowerCase()]));
-// A column shown on a bar over each table photo instead of in its own column (e.g. the price); pages without
-// photos keep it as a column.
-const OVERLAY = DATA.images > 0 && CFG.thumbOverlay ? SHOWN.find(m => m.name.toLowerCase() === CFG.thumbOverlay.toLowerCase()) : null;
-// A number column shown at the right of that bar when it's 1 or more (e.g. excess), just the number.
-const BADGE = DATA.images > 0 && CFG.thumbBadge ? SHOWN.find(m => m.name.toLowerCase() === CFG.thumbBadge.toLowerCase()) : null;
-const TABLE = SHOWN.filter(m => !INLINE[m.name.toLowerCase()] && m !== OVERLAY && m !== BADGE);
-const thumbBar = r => {
-  const main = OVERLAY && r.v[OVERLAY.c], extra = BADGE && Number(r.v[BADGE.c]) > 0 ? r.v[BADGE.c] : '';
+// The bar over each table photo (photoBar): the "main" column (the price) and, after a divider, the "extra" number
+// column (excess) when it's 1 or more. Both leave the table's columns but keep their filters and detail-panel lines.
+// Pages without photos keep them as columns.
+const HAS_IMG = DATA.images > 0;
+const barCol = name => (HAS_IMG && name ? SHOWN.find(m => m.name.toLowerCase() === name) : null);
+const BAR_MAIN = barCol(CFG.photoBar?.main), BAR_EXTRA = barCol(CFG.photoBar?.extra);
+const TABLE = SHOWN.filter(m => m !== BAR_MAIN && m !== BAR_EXTRA);
+const photoBar = r => {
+  const main = BAR_MAIN && r.v[BAR_MAIN.c], extra = BAR_EXTRA && Number(r.v[BAR_EXTRA.c]) > 0 ? r.v[BAR_EXTRA.c] : '';
   if (!main && !extra) return null;
-  return h('span', { class: 'thumb-overlay' + (extra ? ' split' : '') },
+  return h('span', { class: 'photo-bar' + (extra ? ' split' : '') },
     main ? h('span', {}, main) : null,
-    extra ? h('span', { class: 'thumb-extra', title: `${extra} ${BADGE.name.toLowerCase()}` }, extra) : null);
+    extra ? h('span', { class: 'photo-bar-extra', title: `${extra} ${BAR_EXTRA.name.toLowerCase()}` }, extra) : null);
 };
-document.body.classList.toggle('thumb-overlaid', !!OVERLAY);
-const extras = (r, m) => SHOWN.filter(x => INLINE[x.name.toLowerCase()] === m.name.toLowerCase())
-  .filter(x => r.v[x.c] && !(x.kind === 'number' && Number(r.v[x.c]) === 0))
-  .map(x => `${r.v[x.c]} ${x.name.toLowerCase()}`);
-const FACETED = SHOWN.filter(m => m.kind !== 'url' && !NO_FILTER.includes(m.name.toLowerCase()));
+document.body.classList.toggle('no-img', !HAS_IMG);
+document.body.classList.toggle('price-on-photo', !!BAR_MAIN);
+const FACETED = SHOWN.filter(m => !NO_FILTER.includes(m.name.toLowerCase()));
 
 const money = s => { const m = s.match(MONEY); return [m[2].toUpperCase(), parseFloat(m[1].replace(/,/g, ''))]; };
 const cmpVal = (kind, x, y) => {
@@ -126,11 +118,9 @@ const cmpVal = (kind, x, y) => {
   return x.localeCompare(y, undefined, { numeric: true, sensitivity: 'base' });
 };
 
-let IMGS = {};
-const HAS_IMG = DATA.images > 0;
-document.body.classList.toggle('no-img', !HAS_IMG);
-// High-resolution photo files by row ({src, w, h}), for the detail panel. The thumbnail shows behind each one until it loads.
-// Photo paths in the data are relative to the site root; CFG.photoBase gets there from this page's folder.
+let IMGS = {};  // table thumbnails by row, loaded from CFG.images
+// High-resolution photo files by row ({src, w, h}) for the detail panel. Their paths in the data are relative to
+// the site root; CFG.photoBase gets there from this page's folder.
 const PHOTOS = Object.fromEntries(Object.entries(DATA.photos || {}).map(([k, p]) => [k, { ...p, src: (CFG.photoBase || '') + p.src }]));
 // Start downloading a row's photo before its panel opens: on press, on keyboard focus, and for the neighbours of an open row.
 const preloaded = new Set();
@@ -275,8 +265,7 @@ const facetsBox = document.getElementById('facets');
 for (const m of FACETED) {
   const counts = new Map();
   ROWS.forEach(r => r.tok[m.c].forEach(t => counts.set(t, (counts.get(t) || 0) + 1)));
-  // Blank cells get no option of their own.
-  const toks = [...counts.keys()].filter(t => t !== BLANK).sort((a, b) => cmpVal(m.kind, a, b));
+  const toks = [...counts.keys()].sort((a, b) => cmpVal(m.kind, a, b));
   const items = new Map();
   const list = h('div', { class: 'opts' });
   for (const t of toks) {
@@ -320,15 +309,15 @@ const updateFacets = () => {
 // ---------- table ----------
 const thead = document.getElementById('thead');
 const renderHead = () => {
-  // Above the photos: an unlabelled button that sorts by the column shown on them (the price), arrow shown once active.
-  const overlayOn = OVERLAY && state.sort.c === OVERLAY.c;
-  const imgHead = !HAS_IMG ? [] : [OVERLAY
-    ? h('th', { class: 'img-cell', 'aria-sort': overlayOn ? (state.sort.dir > 0 ? 'ascending' : 'descending') : null },
-        h('button', { type: 'button', title: `Sort by ${OVERLAY.name.toLowerCase()}`, onclick: () => {
-          state.sort = { c: OVERLAY.c, dir: overlayOn ? -state.sort.dir : 1 };
+  // Above the photos: an unlabelled button that sorts by the photo bar's column (the price), arrow shown once active.
+  const barOn = BAR_MAIN && state.sort.c === BAR_MAIN.c;
+  const imgHead = !HAS_IMG ? [] : [BAR_MAIN
+    ? h('th', { class: 'img-cell', 'aria-sort': barOn ? (state.sort.dir > 0 ? 'ascending' : 'descending') : null },
+        h('button', { type: 'button', title: `Sort by ${BAR_MAIN.name.toLowerCase()}`, onclick: () => {
+          state.sort = { c: BAR_MAIN.c, dir: barOn ? -state.sort.dir : 1 };
           update();
-        }}, h('span', { class: 'sr' }, `Image. Sort by ${OVERLAY.name.toLowerCase()}`),
-          overlayOn ? h('span', { class: 'arrow', 'aria-hidden': 'true' }, state.sort.dir < 0 ? '↓' : '↑') : null))
+        }}, h('span', { class: 'sr' }, `Image. Sort by ${BAR_MAIN.name.toLowerCase()}`),
+          barOn ? h('span', { class: 'arrow', 'aria-hidden': 'true' }, state.sort.dir < 0 ? '↓' : '↑') : null))
     : h('th', { class: 'img-cell' }, h('span', { class: 'sr' }, 'Image'))];
   thead.replaceChildren(...imgHead, ...TABLE.map(m => {
     const on = state.sort.c === m.c;
@@ -353,12 +342,9 @@ const cell = (m, v, first) => {
   if (chipColour.has(m.c)) return chip(m.c, v);
   if (TAG_COLS.includes(m.name.toLowerCase())) return h('span', { class: 'swatches' }, splitCell(m.name, v).map(t => h('span', { class: 'pill yes chip-col' }, t)));
   if (swatchCols.has(m.c)) return h('span', { class: 'swatches stack' }, splitCell(m.name, v).map(t => h('span', { class: 'pill swatch-pill' }, swatch(t), t)));
-  if (m.kind === 'bool') return [h('span', { class: 'pill wide-only ' + v.toLowerCase() }, v),
-    /^yes$/i.test(v) ? h('span', { class: 'pill phone-only yes' }, m.name) : null];
   if (m.kind === 'number') return h('span', { class: 'num' }, v);
   if (m.kind === 'money') return h('span', { class: 'mono' }, v);
   if (m.kind === 'date') return h('span', { class: 'mono' }, new Date(v + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }));
-  if (m.kind === 'url') return h('a', { href: v, target: '_blank', rel: 'noopener', onclick: e => e.stopPropagation() }, 'Open ↗');
   const lines = v.split(/\n+/);
   return [lines[0], ...lines.slice(1).map(l => h('span', { class: 'line2' }, l))];
 };
@@ -369,15 +355,12 @@ const renderBody = () => {
     onclick: () => openDetail(idx),
     onpointerdown: () => preload(r), onfocus: () => preload(r),
     onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(idx); } } },
-    HAS_IMG ? h('td', { class: 'img-cell' }, h('span', { class: 'thumb-box' }, thumb(r, 'thumb'),
-      thumbBar(r))) : null,
-    TABLE.map((m, k) => { const ex = extras(r, m); return h('td', {
-      class: [k === 0 ? 'first' : '', m.c === ADDED_C ? 'added-col' : '', (!r.v[m.c] && !ex.length) || (m.kind === 'number' && Number(r.v[m.c]) === 0) ? 'nil' : ''].join(' ').trim() || null,
+    HAS_IMG ? h('td', { class: 'img-cell' }, h('span', { class: 'thumb-box' }, thumb(r, 'thumb'), photoBar(r))) : null,
+    TABLE.map((m, k) => h('td', {
+      class: [k === 0 && 'first', m.c === ADDED_C && 'added-col', (!r.v[m.c] || (m.kind === 'number' && Number(r.v[m.c]) === 0)) && 'nil']
+        .filter(Boolean).join(' ') || null,
       'data-col': m.name.toLowerCase(),
-      'data-label': m.kind === 'number' ? m.name : null,
-      'data-bool': m.kind === 'bool' ? (/^yes$/i.test(r.v[m.c]) ? 'yes' : 'no') : null,
-    }, r.v[m.c] || !ex.length ? [cell(m, r.v[m.c], k === 0), ex.map(t => h('span', { class: 'line2' }, t))] : ex.join(' · '),
-      k === 0 ? soldPill(r) : null); }))));
+    }, cell(m, r.v[m.c], k === 0), k === 0 ? soldPill(r) : null)))));
   document.getElementById('empty').hidden = state.view.length > 0;
 };
 
@@ -432,27 +415,28 @@ const totalEl = () => {
     note ? h('small', {}, note.replace(/^ · /, '')) : null);
 };
 
-// Columns left out of the phone Sort by menu.
-const PHONE_NO_SORT = CFG.phoneNoSort || [];
+// Columns left out of the Sort by menu.
+const NO_SORT = CFG.noSort || [];
+
+const sortWords = kind => (kind === 'number' || kind === 'money' ? ['(low–high)', '(high–low)']
+  : kind === 'date' ? ['(oldest first)', '(newest first)'] : ['(A–Z)', '(Z–A)']);
 
 const renderBar = () => {
   const chips = [];
   for (const [c, set] of state.sel) for (const t of set) {
-    chips.push(h('button', { class: 'chip', type: 'button', 'aria-label': `Remove filter ${COLS[c]}: ${t === BLANK ? 'blank' : t}`,
+    chips.push(h('button', { class: 'chip', type: 'button', 'aria-label': `Remove filter ${COLS[c]}: ${t}`,
       onclick: () => { set.delete(t); update(); } },
-      h('span', {}, COLS[c] + ':'), t === BLANK ? '(blank)' : t, h('i', { 'aria-hidden': 'true' }, '×')));
+      h('span', {}, COLS[c] + ':'), t, h('i', { 'aria-hidden': 'true' }, '×')));
   }
   const n = nActive();
   fill(bar,
     filtersEl.classList.contains('open') ? null : h('button', { class: 'chip show-filters', type: 'button', 'aria-expanded': 'false',
       onclick: () => { filtersEl.classList.add('open'); renderBar(); } }, `Filters${n ? ` (${n})` : ''}`),
-    h('label', { class: 'mobile-sort' }, 'Sort by ',
+    h('label', { class: 'sort-menu' }, 'Sort by ',
       h('select', { id: 'sortSel', onchange: e => { const [c, dir] = e.target.value.split(':').map(Number); state.sort = { c, dir }; update(); } },
-        SHOWN.filter(m => !PHONE_NO_SORT.includes(m.name.toLowerCase()) || state.sort.c === m.c)
-          // Yes/no columns get one option that puts the yeses first ("No" < "Yes", so descending).
-          .flatMap(m => (m.kind === 'bool' ? [-1] : [1, -1]).map(dir => h('option', { value: `${m.c}:${dir}`, selected: state.sort.c === m.c && (m.kind === 'bool' || state.sort.dir === dir) || null },
-            m.kind === 'bool' ? `${m.name} first`
-              : `${m.name} ${m.kind === 'number' || m.kind === 'money' ? (dir > 0 ? '(low–high)' : '(high–low)') : m.kind === 'date' ? (dir > 0 ? '(oldest first)' : '(newest first)') : (dir > 0 ? '(A–Z)' : '(Z–A)')}`))))),
+        SHOWN.filter(m => !NO_SORT.includes(m.name.toLowerCase()) || state.sort.c === m.c)
+          .flatMap(m => [1, -1].map(dir => h('option', { value: `${m.c}:${dir}`, selected: state.sort.c === m.c && state.sort.dir === dir || null },
+            `${m.name} ${sortWords(m.kind)[dir > 0 ? 0 : 1]}`))))),
     h('span', { class: 'count' }, 'Showing ', h('b', {}, state.view.length), ' of ', h('b', {}, inStock()), ` ${CFG.plural}`),
     SOLD_N ? h('button', { class: 'chip sold-toggle', type: 'button', 'aria-pressed': String(state.showSold),
       onclick: () => { state.showSold = !state.showSold; try { localStorage.setItem(SHOW_SOLD_KEY, state.showSold ? '1' : '0'); } catch {} update(); } },
@@ -511,12 +495,11 @@ function openDetail(idx) {
       close),
     HAS_IMG ? hero(r) : null,
     h('h2', { id: 'sheetTitle' }, r.v[0] ? nameParts(r.v[0]) : '(untitled)', soldPill(r)),
-    h('dl', { class: 'fields' }, ORDERED.filter(m => m.c !== 0 && m.kind !== 'empty' && m.name.toLowerCase() !== 'image').flatMap(m => [
+    h('dl', { class: 'fields' }, SHOWN.filter(m => m.c !== 0).flatMap(m => [
       h('dt', {}, m.name),
-      h('dd', {}, !r.v[m.c] ? h('span', { class: 'dash' }, '—')
-        : m.kind === 'url' ? h('a', { href: r.v[m.c], target: '_blank', rel: 'noopener' }, r.v[m.c])
-        : m.kind === 'bool' ? h('span', { class: 'pill ' + r.v[m.c].toLowerCase() }, r.v[m.c])
-        : m.kind === 'text' && !chipColour.has(m.c) && !swatchCols.has(m.c) && !TAG_COLS.includes(m.name.toLowerCase()) ? r.v[m.c] : cell(m, r.v[m.c]))
+      // Plain text keeps its line breaks here (dd is pre-line) rather than the table's second-line styling.
+      h('dd', {}, r.v[m.c] && m.kind === 'text' && !chipColour.has(m.c) && !swatchCols.has(m.c) && !TAG_COLS.includes(m.name.toLowerCase())
+        ? r.v[m.c] : cell(m, r.v[m.c]))
     ])),
     sibs.length ? h('div', { class: 'siblings' },
       h('h3', { class: 'eyebrow' }, `Other ${splitName(r.v[0]).filter(Boolean).join(', ')} entries (${sibs.length})`),

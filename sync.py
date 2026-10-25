@@ -1,9 +1,9 @@
 """Refresh the inventory pages from their Google Sheet, one tab per page (see TABS).
 
 Usage: SHEET_ID=... python3 sync.py [out_dir]
-Replaces the contents of <script type="application/json" id="sheet-data"> in each page,
-rewrites its thumbnails file and writes a high-resolution copy of each photo to photos/. Exits non-zero without writing anything if the sheet is not readable.
-The sheet ID comes from the environment so it never appears in this public repository.
+Replaces the contents of <script type="application/json" id="sheet-data"> in each page, rewrites its thumbnails
+file and writes a high-resolution copy of each photo to photos/. Exits non-zero without writing any page if a tab
+can't be read. The sheet ID comes from the environment so it never appears in this public repository.
 """
 import base64, csv, datetime, hashlib, io, json, os, re, sys, urllib.request
 import html as html_lib
@@ -24,10 +24,11 @@ def get(url):
 
 
 class SheetImages(HTMLParser):
-    """Collects {sheet row number: first image URL in that row} from the htmlview table."""
+    """Collects {sheet row number: first image URL in that row} from the htmlview table, and the row numbers it
+    shows (rows hidden in the sheet, e.g. by a filter, are left out of the htmlview)."""
     def __init__(self):
         super().__init__()
-        self.images, self.row, self.cell, self.rownum = {}, False, -1, None
+        self.images, self.rows, self.row, self.cell, self.rownum = {}, set(), False, -1, None
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
@@ -41,6 +42,7 @@ class SheetImages(HTMLParser):
     def handle_data(self, data):
         if self.row and self.cell == 0 and data.strip().isdigit() and self.rownum is None:
             self.rownum = int(data.strip())
+            self.rows.add(self.rownum)
 
 
 def webp_bytes(im, quality):
@@ -50,8 +52,17 @@ def webp_bytes(im, quality):
 
 
 def photo(url, out_dir):
-    """Downloads the original image once and returns (thumbnail data URI, {src, w, h} of the high-resolution file, original size).
-    The high-resolution file is named by a hash of the original, so an unchanged photo is not re-encoded."""
+    """Downloads the original image once and returns (thumbnail data URI, {src, w, h} of the high-resolution file),
+    or None if it fails. The high-resolution file is named by a hash of the original, so an unchanged photo is not
+    re-encoded."""
+    try:
+        return _photo(url, out_dir)
+    except Exception as e:
+        print("image failed:", url[:80], e, file=sys.stderr)
+        return None
+
+
+def _photo(url, out_dir):
     from PIL import Image, ImageOps  # imported here so the sheet-reading helpers work without Pillow
     base = re.sub(r"=[^=/]*$", "", url)
     try:
@@ -66,10 +77,12 @@ def photo(url, out_dir):
     if not os.path.exists(path):
         open(path, "wb").write(webp_bytes(big, PHOTO_QUALITY))
     small = im.resize((IMG_WIDTH, round(im.height * IMG_WIDTH / im.width)), Image.LANCZOS) if im.width > IMG_WIDTH else im
-    return "data:image/webp;base64," + base64.b64encode(webp_bytes(small, WEBP_QUALITY)).decode(), {"src": name, "w": big.width, "h": big.height}, im.size
+    thumb = "data:image/webp;base64," + base64.b64encode(webp_bytes(small, WEBP_QUALITY)).decode()
+    return thumb, {"src": name, "w": big.width, "h": big.height}
 
 
-# Each sheet tab feeds one page: (tab gid, page, thumbnails file), relative to the site root. The gid stays the same when a tab is renamed.
+# Each sheet tab feeds one page: (tab gid, page, thumbnails file), relative to the site root. A tab's gid stays the
+# same when it's renamed.
 TABS = [
     ("0", "flower-inventory/index.html", "flower-inventory/images.json"),          # flowers
     ("1990863409", "juju-inventory/index.html", "juju-inventory/images.json"),     # jujus
@@ -77,7 +90,8 @@ TABS = [
 
 
 def read_tab(gid, out_dir):
-    """Returns (columns, [(sheet row, cells)], thumbnails, photos, original sizes) for one tab."""
+    """Returns (columns, rows, thumbnails, photos) for one tab; blank rows are dropped and the rest padded to the
+    columns. Thumbnails and photos are keyed by row index (as a string)."""
     raw, ctype = get(SHEET + f"/export?format=csv&gid={gid}")
     text = raw.decode("utf-8")
     if "csv" not in ctype or text.lstrip().startswith("<"):
@@ -92,15 +106,22 @@ def read_tab(gid, out_dir):
     html_view, _ = get(SHEET + f"/htmlview/sheet?headers=true&gid={gid}")
     parser = SheetImages()
     parser.feed(html_view.decode("utf-8", "replace"))
+    hidden = [n for n, _ in kept if n not in parser.rows]
+    if hidden:
+        sys.exit(f"Tab {gid}: {len(hidden)} rows are hidden in the sheet (a filter is on, or rows are hidden), so "
+                 f"their photos can't be read. Turn the filter off or unhide them. Nothing published.")
 
     jobs = {k: parser.images[sheet_row] for k, (sheet_row, _) in enumerate(kept) if sheet_row in parser.images}
-    images, photos, sizes = {}, {}, []
+    images, photos = {}, {}
     with ThreadPoolExecutor(8) as pool:
-        for k, res in zip(jobs, pool.map(lambda u: _safe(photo, u, out_dir), jobs.values())):
+        for k, res in zip(jobs, pool.map(lambda u: photo(u, out_dir), jobs.values())):
             if res:
-                images[str(k)], photos[str(k)], size = res
-                sizes.append(size)
-    return cols, kept, images, photos, sizes
+                images[str(k)], photos[str(k)] = res
+    # Google sometimes throttles downloads; publishing then would drop most photos from the page.
+    failed = len(jobs) - len(images)
+    if failed > len(jobs) / 10:
+        sys.exit(f"Tab {gid}: {failed} of {len(jobs)} photos failed to download. Nothing published.")
+    return cols, [r + [""] * (len(cols) - len(r)) for _, r in kept], images, photos
 
 
 def added_dates(old, cols, rows, today, old_photos=None, new_photos=None):
@@ -166,7 +187,7 @@ def main(out_dir="."):
     tabs = [(page, thumbs, *read_tab(gid, out_dir)) for gid, page, thumbs in TABS]
 
     # Drop high-resolution files no longer used by any row of any tab.
-    keep = {os.path.basename(p["src"]) for *_, photos, _ in tabs for p in photos.values()}
+    keep = {os.path.basename(p["src"]) for *_, photos in tabs for p in photos.values()}
     for f in os.listdir(os.path.join(out_dir, PHOTO_DIR)):
         if f not in keep:
             os.remove(os.path.join(out_dir, PHOTO_DIR, f))
@@ -175,24 +196,24 @@ def main(out_dir="."):
     synced = now.isoformat(timespec="seconds")
     today = now.astimezone(ZoneInfo("Australia/Sydney")).date().isoformat()
     pattern = r'(<script type="application/json" id="sheet-data">)(.*?)(</script>)'
+    # Each row's photo key, for dating rows: a hash of its thumbnail (thumbnails are made the same way every sync).
+    photo_keys = lambda thumbs, n: [hashlib.md5(thumbs[str(i)].encode()).hexdigest() if thumbs.get(str(i)) else None for i in range(n)]
     pages = {}
-    for page, thumbs, cols, kept, images, photos, sizes in tabs:
+    for page, thumbs, cols, rows, images, photos in tabs:
         html = open(page, encoding="utf-8").read()
-        if not re.search(pattern, html, re.S):
+        m = re.search(pattern, html, re.S)
+        if not m:
             sys.exit(f"{page} has no sheet-data block. Nothing published.")
         try:
-            old = json.loads(re.search(pattern, html, re.S).group(2))
+            old = json.loads(m.group(2))
         except ValueError:
             old = None
-        rows = [r + [""] * (len(cols) - len(r)) for _, r in kept]
-        # Each row's photo key: a hash of its thumbnail (thumbnails are made the same way every sync).
-        photo_key = lambda uri: hashlib.md5(uri.encode()).hexdigest() if uri else None
         try:
             old_thumbs = json.load(open(thumbs))
         except (OSError, ValueError):
             old_thumbs = {}
-        old_photos = [photo_key(old_thumbs.get(str(j))) for j in range(len((old or {}).get("rows", [])))]
-        new_photos = [photo_key(images.get(str(i))) for i in range(len(rows))]
+        old_photos = photo_keys(old_thumbs, len((old or {}).get("rows", [])))
+        new_photos = photo_keys(images, len(rows))
         data = {
             "synced": synced,
             "columns": cols,
@@ -207,15 +228,10 @@ def main(out_dir="."):
         blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
         pages[page] = re.sub(pattern, lambda m: m.group(1) + blob + m.group(3), html, count=1, flags=re.S)
 
-    for page, thumbs, cols, kept, images, photos, sizes in tabs:
+    for page, thumbs, cols, rows, images, photos in tabs:
         open(os.path.join(out_dir, page), "w", encoding="utf-8").write(pages[page])
         json.dump(images, open(os.path.join(out_dir, thumbs), "w"), separators=(",", ":"))
-        print(f"{page}: {len(cols)} columns, {len(kept)} rows, {len(images)} images "
-              f"({os.path.getsize(os.path.join(out_dir, thumbs)) // 1024} KB thumbnails)")
-        if sizes:
-            widths = sorted(w for w, _ in sizes)
-            print(f"  originals {widths[0]}-{widths[-1]}px wide (median {widths[len(widths) // 2]})")
-    print(f"photos/ {sum(os.path.getsize(os.path.join(out_dir, PHOTO_DIR, f)) for f in keep) // 1024} KB")
+        print(f"{page}: {len(cols)} columns, {len(rows)} rows, {len(images)} photos")
 
 
 def sheet_title():
@@ -226,14 +242,6 @@ def sheet_title():
         return html_lib.unescape(m.group(1)).strip() if m else ""
     except Exception:
         return ""
-
-
-def _safe(fn, arg, *rest):
-    try:
-        return fn(arg, *rest)
-    except Exception as e:
-        print("image failed:", arg[:80], e, file=sys.stderr)
-        return None
 
 
 if __name__ == "__main__":

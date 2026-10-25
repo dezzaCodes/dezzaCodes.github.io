@@ -87,8 +87,8 @@ details.facet summary > .name{flex:1}
 .chip i{font-style:normal;display:grid;place-items:center;width:18px;height:18px;border-radius:50%;color:var(--accent);font-size:15px;line-height:1}
 .chip:hover i{background:var(--accent);color:var(--accent-ink)}
 .show-filters{display:none}
-.mobile-sort{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
-.mobile-sort select{font:inherit;font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 8px;max-width:190px}
+.sort-menu{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.sort-menu select{font:inherit;font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 8px;max-width:190px}
 
 .table-box{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:calc(100vh - 140px)}
 table{border-collapse:collapse;width:100%;font-size:14px}
@@ -104,11 +104,12 @@ td.img-cell{padding:6px 0 6px 10px;width:82px}
 th.img-cell{width:82px}
 th.img-cell button{justify-content:center;min-height:38px}
 .thumb-box{position:relative;display:block;width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--sunk)}
-/* The price (or another column) on a translucent bar along the bottom of the table photo: 14px of the 72px. */
-.thumb-overlay{position:absolute;left:0;right:0;bottom:0;height:14px;padding:0 3px;display:flex;justify-content:center;gap:4px;background:rgba(30,30,30,.6);color:#fff;font:500 10px/14px var(--mono);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.thumb-overlay.split{padding:0 5px 0 0}
-.thumb-overlay.split > span:first-child{flex:1;text-align:center}
-.thumb-extra{font-weight:600;color:#fff;padding-left:4px;border-left:1px solid rgba(255,255,255,.35)}
+/* The photo bar: price on a translucent strip along the bottom of the table photo (14px of the 72px), with the
+   excess number after a divider when there is one. */
+.photo-bar{position:absolute;left:0;right:0;bottom:0;height:14px;padding:0 3px;display:flex;justify-content:center;gap:4px;background:rgba(30,30,30,.6);color:#fff;font:500 10px/14px var(--mono);white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
+.photo-bar.split{padding:0 5px 0 0}
+.photo-bar.split > span:first-child{flex:1;text-align:center}
+.photo-bar-extra{font-weight:600;padding-left:4px;border-left:1px solid rgba(255,255,255,.35)}
 /* The photos are tall, so show the full width and crop the top and bottom to a square around the flower head. */
 .thumb{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 36%}
 .hero{display:block;width:100%;height:auto;flex-shrink:0;background:var(--sunk);border-radius:10px}
@@ -128,7 +129,6 @@ td .line2{display:block;color:var(--muted);font-size:12.5px}
 .pill{display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;height:22px;font:600 12px/1 var(--body);padding:0 10px;border-radius:99px}
 .pill.yes{background:var(--moss-soft);color:var(--moss)}
 .pill.no{background:var(--sunk);color:var(--muted)}
-.phone-only{display:none}
 .pill.c1{background:var(--c1-bg);color:var(--c1-fg)} .pill.c2{background:var(--c2-bg);color:var(--c2-fg)}
 .pill.c3{background:var(--c3-bg);color:var(--c3-fg)} .pill.c4{background:var(--c4-bg);color:var(--c4-fg)}
 .pill.c5{background:var(--c5-bg);color:var(--c5-fg)} .pill.c6{background:var(--c6-bg);color:var(--c6-fg)}
@@ -143,7 +143,7 @@ tbody tr.sold td.first{color:var(--muted)}
 .swatch{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(128,128,128,.45)}
 .opt .swatch{margin-right:6px;vertical-align:-1px}
 .swatches{display:inline-flex;flex-wrap:wrap;gap:4px}
-/* Colour chips: one per line. */
+/* Colour chips: one per line in the table on computers (side by side on phone cards). */
 .swatches.stack{flex-direction:column;align-items:flex-start}
 .num{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 6px;border-radius:6px;background:var(--clay-soft);color:var(--clay);font:500 12px var(--mono)}
 .dash{color:var(--faint)}
@@ -193,7 +193,7 @@ dl.fields dd{white-space:pre-line}
 @media (max-width:640px){
   .wrap{padding-block:18px 32px}
   .search{max-width:none}
-  .mobile-sort{display:inline-flex;margin-left:auto}
+  .sort-menu{margin-left:auto}
   .total{margin-left:auto}
   .bar{gap:8px 10px}
   .sub{font-size:13px}
@@ -215,24 +215,15 @@ dl.fields dd{white-space:pre-line}
   td.first{order:1;flex-basis:100%;padding-right:76px;white-space:normal;font-size:17px;line-height:1.25}
   td.first .variety{display:inline;margin-left:6px;font-size:13px}
   td[data-col="price"]{position:absolute;right:12px;top:14px}
-  .thumb-overlaid td.first{padding-right:0}
+  .price-on-photo td.first{padding-right:0}
   .swatches.stack{flex-direction:row;flex-wrap:wrap}
   td[data-col="colour"]{order:2}
-  td[data-col="where from"],td[data-col="from"],td[data-col="series"]{order:3}
+  td[data-col="from"],td[data-col="series"]{order:3}
   td[data-col="tags"]{order:4}
-  tbody tr td[data-col="excess"]{display:none}
   td.added-col{display:none}
   td[data-col="description"]{order:6;flex-basis:100%;font-size:13px;color:var(--muted)}
   td[data-col="description"] .line2{display:inline;font-size:inherit}
   td[data-col="description"] .line2::before{content:" · "}
-  td[data-label]{display:inline-flex;align-items:center;gap:4px}
-  td[data-label]::before{content:attr(data-label);font-size:12px;color:var(--muted)}
-  td.nil[data-label]{display:none}
-  td[data-bool="no"]{display:none}
-  .wide-only{display:none}
-  .phone-only{display:inline-block}
-}
-/* Pages with no photos: phone cards need no gutter for a thumbnail. */
-@media (max-width:640px){
+  /* Pages with no photos: no gutter for a thumbnail. */
   .no-img tbody tr{padding-left:12px;min-height:0}
 }

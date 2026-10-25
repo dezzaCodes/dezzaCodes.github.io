@@ -23,6 +23,8 @@ Sortable, filterable pages of every flower and juju in the inventory spreadsheet
 - `find-colours` (run `./find-colours` on a Mac with Claude Code signed in) suggests colours for flowers whose Colour cell is empty: Claude Code looks at each photo, the answers are printed, and a block is copied to the clipboard to paste into the Colour column. It reads the sheet ID from `SHEET_ID` or an untracked `.sheet_id` file, and never writes to the sheet.
 - `.github/workflows/sync.yml` runs `sync.py` every morning. It's scheduled for 3:17am Sydney time because GitHub starts scheduled runs hours late, so it usually lands around 5–7am (it's set at both 16:17 and 17:17 UTC and skips whichever isn't 3:17am in Sydney that day, so daylight saving doesn't move it) and commits any changes, which republishes the site through GitHub Pages. Run it by hand from the **Actions** tab with **Run workflow**.
 
+The sync publishes nothing (and the site keeps its last data) if a tab can't be read, if rows are hidden in the sheet by a filter (the sheet's web view, where the photos come from, leaves hidden rows out), or if more than a tenth of a tab's photos fail to download.
+
 The sheet must stay shared as "Anyone with the link can view", and the sheet ID is stored as the repository secret `SHEET_ID`.
 
 `flower-inventory/jujus.html` and `flower-inventory/money.html` redirect the pages' old addresses.

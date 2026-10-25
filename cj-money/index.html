@@ -207,7 +207,6 @@ const parseAmount = s => {
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null;
 };
 const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
-const dateOf = e => e.date || e.added || '';
 const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : 'No date';
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -265,9 +264,8 @@ function renderStatus() {
 }
 
 const TITLES = { income: 'Income', expense: 'Expenses' };
-// Every entry belongs to one business. Entries saved before categories existed are flowers.
+// Every entry belongs to one business.
 const CATS = { flowers: 'Flowers', juju: 'Juju' };
-const catOf = e => e.category || 'flowers';
 // Which businesses are shown. Each can be switched on or off independently; all are on until changed.
 const SHOWN_KEY = 'flower-ledger-shown';
 const shown = new Set((() => {
@@ -296,7 +294,7 @@ let ledgerShown = (() => { try { return localStorage.getItem(LEDGER_KEY) === 'ex
 
 function render() {
   renderStatus();
-  const all = current(), d = { entries: all.entries.filter(e => shown.has(catOf(e))) };
+  const all = current(), d = { entries: all.entries.filter(e => shown.has(e.category)) };
   const t = totals(d), net = t.income - t.expense;
   document.getElementById('toggles').replaceChildren(...Object.entries(CATS).map(([k, name]) =>
     h('button', { class: 'tog ' + k, type: 'button', 'aria-pressed': String(shown.has(k)), onclick: () => toggleCat(k) }, name)));
@@ -318,11 +316,11 @@ function renderLedger(d, type, total) {
   const view = viewOf();
   // Most recent first; entries on the same day show the one added last first.
   const list = d.entries.map((e, i) => [e, i]).filter(([e]) => e.type === type)
-    .sort(([a, i], [b, j]) => dateOf(b).localeCompare(dateOf(a)) || j - i).map(([e]) => e);
+    .sort(([a, i], [b, j]) => b.date.localeCompare(a.date) || j - i).map(([e]) => e);
   const rows = list.map(e => e.id === editing ? editRow(e) : h('tr', { class: 'row', tabindex: 0, title: 'Edit',
     onclick: () => startEdit(e.id),
     onkeydown: ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); startEdit(e.id); } } },
-    h('td', {}, e.desc, view === 'all' ? h('span', { class: 'cat ' + catOf(e) }, CATS[catOf(e)]) : null, h('span', { class: 'when' }, fmtDate(dateOf(e)))), h('td', { class: 'amt' }, fmt(e.cents))));
+    h('td', {}, e.desc, view === 'all' ? h('span', { class: 'cat ' + e.category }, CATS[e.category]) : null, h('span', { class: 'when' }, fmtDate(e.date))), h('td', { class: 'amt' }, fmt(e.cents))));
   if (!list.length) rows.push(h('tr', { class: 'empty' }, h('td', { colspan: 2 },
     shown.size ? `No ${TITLES[type].toLowerCase()} yet.` : 'Tick Flowers or Juju above to see entries.')));
 
@@ -352,8 +350,8 @@ function editRow(e) {
   const desc = h('input', { class: 'field desc', value: e.desc, 'aria-label': 'Description', required: true, autocomplete: 'off' });
   const amt = h('input', { class: 'field amount', value: (e.cents / 100).toFixed(2), inputmode: 'decimal', 'aria-label': 'Amount', required: true, autocomplete: 'off' });
   amt.addEventListener('input', () => amt.setCustomValidity(''));
-  const date = h('input', { class: 'field date', type: 'date', value: dateOf(e) || today(), 'aria-label': 'Date', required: true });
-  const cat = catSelect(catOf(e), 'Business');
+  const date = h('input', { class: 'field date', type: 'date', value: e.date || today(), 'aria-label': 'Date', required: true });
+  const cat = catSelect(e.category, 'Business');
   const form = h('form', { class: 'entry',
     onkeydown: ev => { if (ev.key === 'Escape') { editing = null; render(); } },
     onsubmit: ev => {
@@ -362,9 +360,9 @@ function editRow(e) {
       if (!text) return desc.focus();
       if (cents == null) { amt.setCustomValidity('Enter an amount, e.g. 120.50'); amt.reportValidity(); return; }
       editing = null;
-      const day = date.value || dateOf(e) || today();
-      if (text === e.desc && cents === e.cents && cat.value === catOf(e) && day === dateOf(e)) return render();
-      change(d => { const x = d.entries.find(y => y.id === e.id); if (x) { Object.assign(x, { desc: text, cents, category: cat.value, date: day }); delete x.added; } }, `Edit ${e.type}: ${text}`);
+      const day = date.value || e.date || today();
+      if (text === e.desc && cents === e.cents && cat.value === e.category && day === e.date) return render();
+      change(d => { const x = d.entries.find(y => y.id === e.id); if (x) { Object.assign(x, { desc: text, cents, category: cat.value, date: day }); } }, `Edit ${e.type}: ${text}`);
     } },
     desc, date, amt, cat,
     h('div', { class: 'actions' },
