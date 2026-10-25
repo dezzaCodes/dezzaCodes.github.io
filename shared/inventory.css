@@ -211,7 +211,7 @@ dl.fields dd{white-space:pre-line}
   td[data-col="where from"],td[data-col="from"],td[data-col="series"]{order:3}
   td[data-col="tags"]{order:4}
   tbody tr td[data-col="excess"]{display:none}
-  td[data-col="added"]{display:none}
+  td.added-col{display:none}
   td[data-col="description"]{order:6;flex-basis:100%;font-size:13px;color:var(--muted)}
   td[data-col="description"] .line2{display:inline;font-size:inherit}
   td[data-col="description"] .line2::before{content:" · "}

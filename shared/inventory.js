@@ -11,10 +11,14 @@ const sentence = s => s.split('\n').map(l => {
   l = l.charAt(0).toUpperCase() + l.slice(1);
   return l.replace(PROPER_RE, m => PROPER.find(p => p.toLowerCase() === m.toLowerCase().replace(/\s+/g, ' ')) || m);
 }).join('\n');
-// The Added column: the sheet's own "date added" column where it has a date, otherwise the date the sync first
-// saw the row ("added" in the data). The sheet column itself isn't shown separately.
+// The Added column: the sheet's own date column (e.g. "purchased" or "date added") where it has a date, otherwise
+// the date the sync first saw the row ("added" in the data). It takes the sheet column's name, and the sheet
+// column itself isn't shown separately. Page settings refer to it as "added".
 const TRACKED = Array.isArray(DATA.added) && DATA.added.length === DATA.rows.length ? DATA.added : null;
-const DATE_ADDED_C = DATA.columns.findIndex(c => String(c).trim().toLowerCase() === 'date added');
+const DATE_NAMES = ['purchased', 'purchase date', 'date purchased', 'bought', 'date bought', 'date added', 'added'];
+const DATE_ADDED_C = DATA.columns.findIndex(c => DATE_NAMES.includes(String(c).trim().toLowerCase()));
+const ADDED_LABEL = DATE_ADDED_C >= 0 ? sentence(String(DATA.columns[DATE_ADDED_C]).trim()) : 'Added';
+const cfgName = n => (n === 'added' ? ADDED_LABEL.toLowerCase() : n);
 const sheetDates = (() => {
   if (DATE_ADDED_C < 0) return [];
   const vals = DATA.rows.map(r => String(r[DATE_ADDED_C] ?? '').trim());
@@ -36,7 +40,9 @@ const sheetDates = (() => {
 })();
 const ADDED = TRACKED || DATE_ADDED_C >= 0 ? DATA.rows.map((_, i) => sheetDates[i] || (TRACKED && TRACKED[i]) || '') : null;
 const HAS_ADDED = !!ADDED;
-const COLS = [...DATA.columns.map(c => sentence(String(c))), ...(HAS_ADDED ? ['Added'] : [])];
+// The sheet's own date column keeps a distinct name so lookups by name find the combined column.
+const COLS = [...DATA.columns.map((c, i) => sentence(String(c)) + (i === DATE_ADDED_C ? ' (sheet)' : '')), ...(HAS_ADDED ? [ADDED_LABEL] : [])];
+const ADDED_C = HAS_ADDED ? COLS.length - 1 : -1;
 const BLANK = '\u0000blank';
 const MONEY = /^([\d.,]+)\s*([A-Za-z]{3})$/;
 // Values to show when a cell is blank, by column name.
@@ -80,7 +86,7 @@ const kindOf = c => {
 };
 const META = COLS.map((name, c) => ({ name, c, kind: kindOf(c) }));
 // Column order for the table, filters and detail panel; columns not listed follow in sheet order.
-const ORDER = CFG.order || [];
+const ORDER = (CFG.order || []).map(cfgName);
 const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 ? ORDER.length + m.c : k; };
 // A "sold" column marks sold items: anything typed in it (yes, a date, a ticked checkbox) except no/false/0.
 // It isn't shown as a column; sold rows are left out of the table and every count unless "Show sold" is on.
@@ -90,7 +96,7 @@ const SOLD_N = ROWS.filter(r => r.sold).length;
 const ORDERED = META.filter(m => m.c !== SOLD_C && m.c !== DATE_ADDED_C).sort((a, b) => rank(a) - rank(b));
 const SHOWN = ORDERED.filter(m => m.kind !== 'empty');
 // Columns that get no filter list in the sidebar; search still covers them.
-const NO_FILTER = CFG.noFilter || [];
+const NO_FILTER = (CFG.noFilter || []).map(cfgName);
 const FACETED = SHOWN.filter(m => m.kind !== 'url' && !NO_FILTER.includes(m.name.toLowerCase()));
 
 const money = s => { const m = s.match(MONEY); return [m[2].toUpperCase(), parseFloat(m[1].replace(/,/g, ''))]; };
@@ -145,7 +151,7 @@ const chip = (c, v) => h('span', { class: 'pill chip-col ' + (chipColour.get(c)?
 
 // Default sort: CFG.sortBy's column if the page names one, else the first column; ties go by the first column.
 const SHOW_SOLD_KEY = `${CFG.plural}-show-sold`;
-const state = { q: '', sort: { c: Math.max(0, colIdx(CFG.sortBy)), dir: CFG.sortDir || 1 }, sel: new Map(), view: [],
+const state = { q: '', sort: { c: Math.max(0, colIdx(cfgName(CFG.sortBy))), dir: CFG.sortDir || 1 }, sel: new Map(), view: [],
   showSold: (() => { try { return localStorage.getItem(SHOW_SOLD_KEY) === '1'; } catch { return false; } })() };
 // How many rows the current sold setting allows, before search and filters.
 const inStock = () => (state.showSold ? ROWS.length : ROWS.length - SOLD_N);
@@ -335,7 +341,7 @@ const renderBody = () => {
     onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(idx); } } },
     HAS_IMG ? h('td', { class: 'img-cell' }, h('span', { class: 'thumb-box' }, thumb(r, 'thumb'))) : null,
     SHOWN.map((m, k) => h('td', {
-      class: [k === 0 ? 'first' : '', !r.v[m.c] || (m.kind === 'number' && Number(r.v[m.c]) === 0) ? 'nil' : ''].join(' ').trim() || null,
+      class: [k === 0 ? 'first' : '', m.c === ADDED_C ? 'added-col' : '', !r.v[m.c] || (m.kind === 'number' && Number(r.v[m.c]) === 0) ? 'nil' : ''].join(' ').trim() || null,
       'data-col': m.name.toLowerCase(),
       'data-label': m.kind === 'number' ? m.name : null,
       'data-bool': m.kind === 'bool' ? (/^yes$/i.test(r.v[m.c]) ? 'yes' : 'no') : null,
