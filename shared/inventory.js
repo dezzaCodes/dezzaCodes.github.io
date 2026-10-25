@@ -100,7 +100,11 @@ const NO_FILTER = (CFG.noFilter || []).map(cfgName);
 // Columns shown inside another column's cell instead of their own, e.g. { excess: 'description' } adds
 // "2 excess" under the description. They keep their filter and their line in the detail panel.
 const INLINE = Object.fromEntries(Object.entries(CFG.inline || {}).map(([k, v]) => [k.toLowerCase(), v.toLowerCase()]));
-const TABLE = SHOWN.filter(m => !INLINE[m.name.toLowerCase()]);
+// A column shown on a bar over each table photo instead of in its own column (e.g. the price); pages without
+// photos keep it as a column.
+const OVERLAY = DATA.images > 0 && CFG.thumbOverlay ? SHOWN.find(m => m.name.toLowerCase() === CFG.thumbOverlay.toLowerCase()) : null;
+const TABLE = SHOWN.filter(m => !INLINE[m.name.toLowerCase()] && m !== OVERLAY);
+document.body.classList.toggle('thumb-overlaid', !!OVERLAY);
 const extras = (r, m) => SHOWN.filter(x => INLINE[x.name.toLowerCase()] === m.name.toLowerCase())
   .filter(x => r.v[x.c] && !(x.kind === 'number' && Number(r.v[x.c]) === 0))
   .map(x => `${r.v[x.c]} ${x.name.toLowerCase()}`);
@@ -346,7 +350,8 @@ const renderBody = () => {
     onclick: () => openDetail(idx),
     onpointerdown: () => preload(r), onfocus: () => preload(r),
     onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(idx); } } },
-    HAS_IMG ? h('td', { class: 'img-cell' }, h('span', { class: 'thumb-box' }, thumb(r, 'thumb'))) : null,
+    HAS_IMG ? h('td', { class: 'img-cell' }, h('span', { class: 'thumb-box' }, thumb(r, 'thumb'),
+      OVERLAY && r.v[OVERLAY.c] ? h('span', { class: 'thumb-overlay' }, r.v[OVERLAY.c]) : null)) : null,
     TABLE.map((m, k) => { const ex = extras(r, m); return h('td', {
       class: [k === 0 ? 'first' : '', m.c === ADDED_C ? 'added-col' : '', (!r.v[m.c] && !ex.length) || (m.kind === 'number' && Number(r.v[m.c]) === 0) ? 'nil' : ''].join(' ').trim() || null,
       'data-col': m.name.toLowerCase(),

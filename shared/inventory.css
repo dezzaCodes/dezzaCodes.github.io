@@ -87,7 +87,7 @@ details.facet summary > .name{flex:1}
 .chip i{font-style:normal;display:grid;place-items:center;width:18px;height:18px;border-radius:50%;color:var(--accent);font-size:15px;line-height:1}
 .chip:hover i{background:var(--accent);color:var(--accent-ink)}
 .show-filters{display:none}
-.mobile-sort{display:none;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.mobile-sort{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 .mobile-sort select{font:inherit;font-size:13px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 8px;max-width:190px}
 
 .table-box{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:calc(100vh - 140px)}
@@ -102,7 +102,9 @@ th[aria-sort] .arrow{opacity:1}
 td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
 td.img-cell{padding:6px 0 6px 10px;width:82px}
 th.img-cell{width:82px}
-.thumb-box{display:block;width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--sunk)}
+.thumb-box{position:relative;display:block;width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--sunk)}
+/* The price (or another column) on a translucent bar along the bottom of the table photo: 14px of the 72px. */
+.thumb-overlay{position:absolute;left:0;right:0;bottom:0;height:14px;padding:0 3px;background:rgba(30,30,30,.6);color:#fff;font:500 10px/14px var(--mono);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 /* The photos are tall, so show the full width and crop the top and bottom to a square around the flower head. */
 .thumb{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 36%}
 .hero{display:block;width:100%;height:auto;flex-shrink:0;background:var(--sunk);border-radius:10px}
@@ -207,6 +209,7 @@ dl.fields dd{white-space:pre-line}
   td.first{order:1;flex-basis:100%;padding-right:76px;white-space:normal;font-size:17px;line-height:1.25}
   td.first .variety{display:inline;margin-left:6px;font-size:13px}
   td[data-col="price"]{position:absolute;right:12px;top:14px}
+  .thumb-overlaid td.first{padding-right:0}
   td[data-col="colour"]{order:2}
   td[data-col="where from"],td[data-col="from"],td[data-col="series"]{order:3}
   td[data-col="tags"]{order:4}
