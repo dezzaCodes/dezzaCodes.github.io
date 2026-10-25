@@ -345,7 +345,7 @@ const cell = (m, v, first) => {
   if (first) return nameParts(v);
   if (chipColour.has(m.c)) return chip(m.c, v);
   if (TAG_COLS.includes(m.name.toLowerCase())) return h('span', { class: 'swatches' }, splitCell(m.name, v).map(t => h('span', { class: 'pill yes chip-col' }, t)));
-  if (swatchCols.has(m.c)) return h('span', { class: 'swatches' }, splitCell(m.name, v).map(t => h('span', { class: 'pill swatch-pill' }, swatch(t), t)));
+  if (swatchCols.has(m.c)) return h('span', { class: 'swatches stack' }, splitCell(m.name, v).map(t => h('span', { class: 'pill swatch-pill' }, swatch(t), t)));
   if (m.kind === 'bool') return [h('span', { class: 'pill wide-only ' + v.toLowerCase() }, v),
     /^yes$/i.test(v) ? h('span', { class: 'pill phone-only yes' }, m.name) : null];
   if (m.kind === 'number') return h('span', { class: 'num' }, v);
