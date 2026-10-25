@@ -216,6 +216,7 @@ dl.fields dd{white-space:pre-line}
   td.first .variety{display:inline;margin-left:6px;font-size:13px}
   td[data-col="price"]{position:absolute;right:12px;top:14px}
   .thumb-overlaid td.first{padding-right:0}
+  .swatches.stack{flex-direction:row;flex-wrap:wrap}
   td[data-col="colour"]{order:2}
   td[data-col="where from"],td[data-col="from"],td[data-col="series"]{order:3}
   td[data-col="tags"]{order:4}
