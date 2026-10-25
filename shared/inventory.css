@@ -102,6 +102,7 @@ th[aria-sort] .arrow{opacity:1}
 td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
 td.img-cell{padding:6px 0 6px 10px;width:82px}
 th.img-cell{width:82px}
+th.img-cell button{justify-content:center;min-height:38px}
 .thumb-box{position:relative;display:block;width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--sunk)}
 /* The price (or another column) on a translucent bar along the bottom of the table photo: 14px of the 72px. */
 .thumb-overlay{position:absolute;left:0;right:0;bottom:0;height:14px;padding:0 3px;background:rgba(30,30,30,.6);color:#fff;font:500 10px/14px var(--mono);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}

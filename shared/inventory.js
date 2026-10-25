@@ -311,7 +311,17 @@ const updateFacets = () => {
 // ---------- table ----------
 const thead = document.getElementById('thead');
 const renderHead = () => {
-  thead.replaceChildren(...(HAS_IMG ? [h('th', { class: 'img-cell' }, h('span', { class: 'sr' }, 'Image'))] : []), ...TABLE.map(m => {
+  // Above the photos: an unlabelled button that sorts by the column shown on them (the price), arrow shown once active.
+  const overlayOn = OVERLAY && state.sort.c === OVERLAY.c;
+  const imgHead = !HAS_IMG ? [] : [OVERLAY
+    ? h('th', { class: 'img-cell', 'aria-sort': overlayOn ? (state.sort.dir > 0 ? 'ascending' : 'descending') : null },
+        h('button', { type: 'button', title: `Sort by ${OVERLAY.name.toLowerCase()}`, onclick: () => {
+          state.sort = { c: OVERLAY.c, dir: overlayOn ? -state.sort.dir : 1 };
+          update();
+        }}, h('span', { class: 'sr' }, `Image. Sort by ${OVERLAY.name.toLowerCase()}`),
+          overlayOn ? h('span', { class: 'arrow', 'aria-hidden': 'true' }, state.sort.dir < 0 ? '↓' : '↑') : null))
+    : h('th', { class: 'img-cell' }, h('span', { class: 'sr' }, 'Image'))];
+  thead.replaceChildren(...imgHead, ...TABLE.map(m => {
     const on = state.sort.c === m.c;
     return h('th', { 'aria-sort': on ? (state.sort.dir > 0 ? 'ascending' : 'descending') : null },
       h('button', { type: 'button', onclick: () => {
