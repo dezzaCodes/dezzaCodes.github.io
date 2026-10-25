@@ -61,7 +61,12 @@ const clean = (name, x) => {
 };
 // Colour columns can list several colours separated by commas, e.g. "Pink, Orange".
 const SWATCH_COLS = ['colour', 'color'];
-const splitCell = (name, x) => x.split(SWATCH_COLS.includes(name.toLowerCase()) ? /[\n,]+/ : /\n+/).map(t => sentence(t.trim())).filter(Boolean);
+// Columns shown as colour-coded chips (each distinct value gets its own colour).
+const CHIP_COLS = CFG.chipCols || [];
+// Colour, chip and tag columns can list several values separated by commas or line breaks, e.g. "Pink, Orange";
+// each value is its own chip and filter option. Other columns only split on line breaks.
+const LIST_COLS = [...SWATCH_COLS, ...CHIP_COLS, ...TAG_COLS];
+const splitCell = (name, x) => x.split(LIST_COLS.includes(name.toLowerCase()) ? /[\n,]+/ : /\n+/).map(t => sentence(t.trim())).filter(Boolean);
 // Number columns filtered by thresholds: a row with 3 matches "1+", "2+" and "3+"; 0 or blank matches none.
 const AT_LEAST = CFG.atLeast || [];
 const atLeast = x => Array.from({ length: Math.max(0, Math.floor(Number(x)) || 0) }, (_, k) => `${k + 1}+`);
@@ -144,12 +149,13 @@ const thumb = (r, cls) => IMGS[r.i]
   : h('span', { class: cls, 'aria-hidden': 'true' });
 const colIdx = name => META.findIndex(m => m.name.toLowerCase() === name);
 
-// Columns shown as colour-coded chips. Each distinct value gets its own colour, in alphabetical order.
-const CHIP_COLS = CFG.chipCols || [];
+// Chip colours: values sharing a first word share a colour (e.g. every "NY …" place), in alphabetical order.
 const chipColour = new Map();
+const firstWord = v => v.split(/\s+/)[0].toLowerCase();
 META.filter(m => CHIP_COLS.includes(m.name.toLowerCase())).forEach(m => {
-  const vals = [...new Set(ROWS.map(r => r.v[m.c]).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  chipColour.set(m.c, new Map(vals.map((v, k) => [v, 'c' + (k % 6 + 1)])));
+  const vals = [...new Set(ROWS.flatMap(r => r.tok[m.c]))];
+  const groups = [...new Set(vals.map(firstWord))].sort();
+  chipColour.set(m.c, new Map(vals.map(v => [v, 'c' + (groups.indexOf(firstWord(v)) % 6 + 1)])));
 });
 // Colour columns show a swatch of the named colour beside the value.
 const SWATCHES = { red: '#D2353B', pink: '#EC86B0', orange: '#F08A35', yellow: '#F3CB45', green: '#4C9A58', blue: '#4B80D2',
@@ -158,6 +164,7 @@ const SWATCHES = { red: '#D2353B', pink: '#EC86B0', orange: '#F08A35', yellow: '
 const swatchCols = new Set(META.filter(m => SWATCH_COLS.includes(m.name.toLowerCase())).map(m => m.c));
 const swatch = v => SWATCHES[v.toLowerCase()] ? h('span', { class: 'swatch', style: 'background:' + SWATCHES[v.toLowerCase()], 'aria-hidden': 'true' }) : null;
 const chip = (c, v) => h('span', { class: 'pill chip-col ' + (chipColour.get(c)?.get(v) || 'no') }, v);
+const chips = (m, v) => h('span', { class: 'swatches chips' }, splitCell(m.name, v).map(t => chip(m.c, t)));
 
 // Default sort: CFG.sortBy's column if the page names one, else the first column; ties go by the first column.
 const SHOW_SOLD_KEY = `${CFG.plural}-show-sold`;
@@ -339,7 +346,7 @@ const nameParts = v => { const [name, variety] = splitName(v); return [name, var
 const cell = (m, v, first) => {
   if (!v) return h('span', { class: 'dash' }, '—');
   if (first) return nameParts(v);
-  if (chipColour.has(m.c)) return chip(m.c, v);
+  if (chipColour.has(m.c)) return chips(m, v);
   if (TAG_COLS.includes(m.name.toLowerCase())) return h('span', { class: 'swatches' }, splitCell(m.name, v).map(t => h('span', { class: 'pill yes chip-col' }, t)));
   if (swatchCols.has(m.c)) return h('span', { class: 'swatches stack' }, splitCell(m.name, v).map(t => h('span', { class: 'pill swatch-pill' }, swatch(t), t)));
   if (m.kind === 'number') return h('span', { class: 'num' }, v);
@@ -509,7 +516,7 @@ function openDetail(idx) {
         openDetail(j);
       }}, HAS_IMG ? thumb(o, 'sib-thumb') : h('span'),
          h('span', {}, (DESC >= 0 ? o.v[DESC].split('\n')[0] : '') || '—'),
-         h('span', { class: 'from' }, FROM >= 0 && o.v[FROM] ? (chipColour.has(FROM) ? chip(FROM, o.v[FROM]) : o.v[FROM]) : '')))) : null
+         h('span', { class: 'from' }, FROM >= 0 && o.v[FROM] ? (chipColour.has(FROM) ? chips(META[FROM], o.v[FROM]) : o.v[FROM]) : '')))) : null
   );
   scrim.hidden = false;
   close.focus();

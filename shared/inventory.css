@@ -145,6 +145,8 @@ tbody tr.sold td.first{color:var(--muted)}
 .swatches{display:inline-flex;flex-wrap:wrap;gap:4px}
 /* Colour chips: one per line in the table on computers (side by side on phone cards). */
 .swatches.stack{flex-direction:column;align-items:flex-start}
+/* Several places in one cell wrap rather than widening the column. */
+.swatches.chips{max-width:230px}
 .num{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 6px;border-radius:6px;background:var(--clay-soft);color:var(--clay);font:500 12px var(--mono)}
 .dash{color:var(--faint)}
 .empty{padding:48px 20px;text-align:center;color:var(--muted)}
@@ -217,6 +219,7 @@ dl.fields dd{white-space:pre-line}
   td[data-col="price"]{position:absolute;right:12px;top:14px}
   .price-on-photo td.first{padding-right:0}
   .swatches.stack{flex-direction:row;flex-wrap:wrap}
+  .swatches.chips{max-width:none}
   td[data-col="colour"]{order:2}
   td[data-col="from"],td[data-col="series"]{order:3}
   td[data-col="tags"]{order:4}
