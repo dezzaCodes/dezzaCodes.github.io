@@ -59,7 +59,8 @@ aside.filters{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);max-
 .linkbtn:hover{text-decoration:underline}
 .sub a.synced{color:inherit;text-decoration:none}
 .sub a.synced:hover{text-decoration:underline}
-.sync-btn{display:inline-grid;place-items:center;width:22px;height:22px;margin-left:2px;vertical-align:-5px;border:0;border-radius:50%;background:none;color:var(--accent);cursor:pointer;padding:0}
+.synced-row{display:inline-flex;align-items:center;gap:2px}
+.sync-btn{display:grid;place-items:center;width:22px;height:22px;margin:-4px 0;border:0;border-radius:50%;background:none;color:var(--accent);cursor:pointer;padding:0}
 .sync-btn:hover:not(:disabled){background:var(--sunk)}
 .sync-btn:disabled{cursor:default}
 .sync-btn.spinning svg{animation:spin 1s linear infinite}

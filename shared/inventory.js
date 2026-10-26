@@ -201,8 +201,11 @@ const syncedText = synced && 'synced ' + synced.toLocaleString('en-AU', { day: '
   ...(synced.getFullYear() !== new Date().getFullYear() && { year: 'numeric' }) });
 document.getElementById('sub').append(
   h('b', {}, ROWS.length - SOLD_N), ` ${CFG.plural}`, SOLD_N ? ` (${SOLD_N} sold)` : '',
-  ...(syncedText ? [' · ', DATA.sheet ? h('a', { class: 'synced', href: DATA.sheet, target: '_blank', rel: 'noopener', title: 'Open the Google Sheet' }, syncedText) : syncedText] : []),
-  syncBtn, syncStatus
+  ...(syncedText ? [' · '] : []),
+  // The sync time and icon sit in one row so the icon centres on the text.
+  h('span', { class: 'synced-row' }, syncedText && DATA.sheet
+    ? h('a', { class: 'synced', href: DATA.sheet, target: '_blank', rel: 'noopener', title: 'Open the Google Sheet' }, syncedText)
+    : syncedText || null, syncBtn), syncStatus
 );
 
 // ---------- sync now ----------
