@@ -104,7 +104,9 @@ const NO_FILTER = (CFG.noFilter || []).map(cfgName);
 const HAS_IMG = DATA.images > 0;
 const barCol = name => (HAS_IMG && name ? SHOWN.find(m => m.name.toLowerCase() === name) : null);
 const BAR_MAIN = barCol(CFG.photoBar?.main), BAR_EXTRA = barCol(CFG.photoBar?.extra);
-const TABLE = SHOWN.filter(m => m !== BAR_MAIN && m !== BAR_EXTRA);
+// A column shown under the name in the first cell instead of its own column (subCol, e.g. the description).
+const SUB = CFG.subCol ? SHOWN.find(m => m.name.toLowerCase() === CFG.subCol) : null;
+const TABLE = SHOWN.filter(m => m !== BAR_MAIN && m !== BAR_EXTRA && m !== SUB);
 const photoBar = r => {
   const main = BAR_MAIN && r.v[BAR_MAIN.c], extra = BAR_EXTRA && Number(r.v[BAR_EXTRA.c]) > 0 ? r.v[BAR_EXTRA.c] : '';
   if (!main && !extra) return null;
@@ -374,7 +376,8 @@ const renderBody = () => {
       class: [k === 0 && 'first', m.c === ADDED_C && 'added-col', (!r.v[m.c] || (m.kind === 'number' && Number(r.v[m.c]) === 0)) && 'nil']
         .filter(Boolean).join(' ') || null,
       'data-col': m.name.toLowerCase(),
-    }, cell(m, r.v[m.c], k === 0), k === 0 ? soldPill(r) : null)))));
+    }, cell(m, r.v[m.c], k === 0), k === 0 ? [soldPill(r),
+      SUB && r.v[SUB.c] ? h('span', { class: 'sub-text' }, r.v[SUB.c].split('\n').join(' · ')) : null] : null)))));
   document.getElementById('empty').hidden = state.view.length > 0;
 };
 
