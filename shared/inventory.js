@@ -379,7 +379,11 @@ const renderBody = () => {
 };
 
 // ---------- bar ----------
-const bar = document.getElementById('bar');
+const bar = document.getElementById('bar'), toolbar = document.getElementById('toolbar');
+const activeFilters = document.getElementById('activeFilters'), sortSel = document.getElementById('sortSel');
+const showFiltersBtn = document.getElementById('showFilters');
+showFiltersBtn.onclick = () => { filtersEl.classList.add('open'); renderBar(); };
+sortSel.onchange = () => { const [c, dir] = sortSel.value.split(':').map(Number); state.sort = { c, dir }; update(); };
 const filtersEl = document.getElementById('filters');
 const nActive = () => [...state.sel.values()].reduce((a, s) => a + s.size, 0);
 // ---------- total, converted to Australian dollars at the latest exchange rate ----------
@@ -416,17 +420,15 @@ const totalEl = () => {
     by.set(cur, (by.get(cur) || 0) + n);
   });
   const parts = [...by].map(([cur, n]) => `${n.toLocaleString('en-AU', { maximumFractionDigits: 2 })} ${cur}`);
-  const note = unpriced ? ` · ${unpriced} without a price` : '';
+  const note = unpriced ? `${unpriced} without a price` : '';
   if (FX === null) return h('span', { class: 'total' }, 'Total ', h('small', {}, 'loading exchange rates…'));
-  if (!FX) return h('span', { class: 'total' }, 'Total ', h('b', {}, parts.join(' + ') || '0'),
-    h('small', {}, 'exchange rates unavailable right now' + note));
+  if (!FX) return h('span', { class: 'total', title: note }, 'Total ', h('b', {}, parts.join(' + ') || '0'),
+    h('small', {}, 'exchange rates unavailable right now'));
   const sum = [...by].reduce((a, [cur, n]) => a + (cur === HOME ? n : n / FX.rates[cur]), 0);
-  const foreign = [...by.keys()].filter(c => c !== HOME);
-  const rateText = foreign.map(c => `1 ${c} = ${(1 / FX.rates[c]).toFixed(3)} ${HOME}`).join(', ');
-  const day = FX.date ? new Date(FX.date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '';
-  return h('span', { class: 'total', title: parts.join(' + ') + (rateText ? `\n${rateText} (${FX.source}, ${FX.date})` : '') },
-    'Total ', h('b', {}, `${fmtHome(sum)} ${HOME}`),
-    note ? h('small', {}, note.replace(/^ · /, '')) : null);
+  const rates = [...by.keys()].filter(c => c !== HOME).map(c => `1 ${c} = ${(1 / FX.rates[c]).toFixed(3)} ${HOME}`).join(', ');
+  // The breakdown by currency, the exchange rates and any unpriced items are in the tooltip.
+  return h('span', { class: 'total', title: [parts.join(' + '), rates && `${rates} (${FX.source}, ${FX.date})`, note].filter(Boolean).join('\n') },
+    'Total ', h('b', {}, `${fmtHome(sum)} ${HOME}`));
 };
 
 // Columns left out of the Sort by menu.
@@ -443,19 +445,21 @@ const renderBar = () => {
       h('span', {}, COLS[c] + ':'), t, h('i', { 'aria-hidden': 'true' }, '×')));
   }
   const n = nActive();
+  // Toolbar: the phone Filters button and the Sort by menu.
+  showFiltersBtn.hidden = filtersEl.classList.contains('open');
+  showFiltersBtn.textContent = `Filters${n ? ` (${n})` : ''}`;
+  sortSel.replaceChildren(...SHOWN.filter(m => !NO_SORT.includes(m.name.toLowerCase()) || state.sort.c === m.c)
+    .flatMap(m => [1, -1].map(dir => h('option', { value: `${m.c}:${dir}`, selected: state.sort.c === m.c && state.sort.dir === dir || null },
+      `${m.name} ${sortWords(m.kind)[dir > 0 ? 0 : 1]}`))));
+  // Summary line: count and the sold toggle on the left, the total on the right; active filters below.
   fill(bar,
-    filtersEl.classList.contains('open') ? null : h('button', { class: 'chip show-filters', type: 'button', 'aria-expanded': 'false',
-      onclick: () => { filtersEl.classList.add('open'); renderBar(); } }, `Filters${n ? ` (${n})` : ''}`),
-    h('label', { class: 'sort-menu' }, 'Sort by ',
-      h('select', { id: 'sortSel', onchange: e => { const [c, dir] = e.target.value.split(':').map(Number); state.sort = { c, dir }; update(); } },
-        SHOWN.filter(m => !NO_SORT.includes(m.name.toLowerCase()) || state.sort.c === m.c)
-          .flatMap(m => [1, -1].map(dir => h('option', { value: `${m.c}:${dir}`, selected: state.sort.c === m.c && state.sort.dir === dir || null },
-            `${m.name} ${sortWords(m.kind)[dir > 0 ? 0 : 1]}`))))),
     h('span', { class: 'count' }, 'Showing ', h('b', {}, state.view.length), ' of ', h('b', {}, inStock()), ` ${CFG.plural}`),
     SOLD_N ? h('button', { class: 'chip sold-toggle', type: 'button', 'aria-pressed': String(state.showSold),
       onclick: () => { state.showSold = !state.showSold; try { localStorage.setItem(SHOW_SOLD_KEY, state.showSold ? '1' : '0'); } catch {} update(); } },
       `${state.showSold ? 'Hide' : 'Show'} sold (${SOLD_N})`) : null,
-    ...chips, totalEl());
+    totalEl());
+  fill(activeFilters, chips);
+  activeFilters.hidden = !chips.length;
   document.getElementById('clearAll').hidden = !n;
   syncToTop();
   document.getElementById('doneFilters').textContent = `Show ${state.view.length} ${state.view.length === 1 ? CFG.noun : CFG.plural}`;
@@ -465,7 +469,7 @@ document.getElementById('clearAll').onclick = () => { state.sel.clear(); update(
 const closeFilters = () => {
   filtersEl.classList.remove('open');
   renderBar();
-  const top = bar.getBoundingClientRect().top;
+  const top = toolbar.getBoundingClientRect().top;
   if (top < 0) window.scrollTo({ top: window.scrollY + top - 12 });
 };
 document.getElementById('closeFilters').onclick = closeFilters;
@@ -552,7 +556,7 @@ if (HAS_IMG) fetch(CFG.images).then(res => res.ok ? res.json() : {}).then(j => {
 function scrollToTable() {
   const box = document.getElementById('tableBox');
   box.scrollTop = 0;
-  const top = bar.getBoundingClientRect().top;
+  const top = toolbar.getBoundingClientRect().top;
   if (top < 0) {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.scrollTo({ top: window.scrollY + top - 12, behavior: reduce ? 'auto' : 'smooth' });
