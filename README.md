@@ -12,6 +12,7 @@ Sortable, filterable pages of every flower and juju in the inventory spreadsheet
 
 - `index.html` is the links page at the site root.
 - `flower-inventory/index.html` (the sheet's flowers tab) and `juju-inventory/index.html` (the jujus tab) are the inventory pages. Each holds its rows in a `sheet-data` JSON block and its settings (column order, chip and filter columns, wording) in `window.INVENTORY`.
+- The Colour column can name any shade ("hot pink", "champagne", "sage green"). The site shows the shade but files it under one of the main colours (Red, Pink, Orange, Yellow, Green, Blue, Purple, White, Cream, Brown, Black, Grey, Multicolour, Iridescent) for the filter and the colour dot: a main colour named in the shade, else a known shade (`SHADES` in `shared/inventory.js`), and a main colour in brackets ("champagne (white)") overrides both.
 - A `sold` column in either tab marks items as sold (anything typed in it, e.g. yes, a date or a ticked checkbox, except no/false/0). Sold items are left out of the table, the counts and the total until **Show sold** is pressed, and then appear greyed out with a Sold label.
 - `shared/inventory.css` and `shared/inventory.js` are the shared look and behaviour of both inventory pages.
 - Each inventory folder's `images.json` holds that page's table thumbnails, resized to 360px WebP.

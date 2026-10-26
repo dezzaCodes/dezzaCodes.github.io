@@ -61,6 +61,39 @@ const clean = (name, x) => {
 };
 // Colour columns can list several colours separated by commas, e.g. "Pink, Orange".
 const SWATCH_COLS = ['colour', 'color'];
+// Colour cells can name any shade ("hot pink", "champagne"); each is filed under one of the main colours for the
+// filter and its dot: a main colour named in the shade (the last one, so "blue-purple" is Purple), else a known
+// shade below, else a main colour in brackets ("champagne (white)"), which also overrides the others. A shade that
+// matches nothing gets its own filter entry.
+const MAIN_COLOURS = ['Red', 'Pink', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'White', 'Cream', 'Brown', 'Black', 'Grey', 'Multicolour', 'Iridescent'];
+const SHADES = {
+  Red: ['burgundy', 'maroon', 'raspberry', 'crimson', 'scarlet', 'cherry', 'wine', 'ruby'],
+  Pink: ['rose', 'blush', 'salmon', 'magenta', 'fuchsia', 'peach', 'bubblegum'],
+  Orange: ['coral', 'apricot', 'rust', 'tangerine', 'amber'],
+  Yellow: ['gold', 'golden', 'mustard', 'lemon', 'butter'],
+  Green: ['sage', 'olive', 'mint', 'emerald', 'lime', 'jade'],
+  Blue: ['navy', 'teal', 'sky', 'cornflower', 'cobalt', 'turquoise', 'aqua'],
+  Purple: ['lilac', 'lavender', 'mauve', 'violet', 'plum', 'periwinkle', 'orchid'],
+  White: ['ivory', 'pearl', 'snow'],
+  Cream: ['beige', 'champagne', 'nude', 'tan', 'sand', 'rose gold'],
+  Brown: ['chocolate', 'coffee', 'caramel', 'bronze'],
+  Black: ['charcoal', 'jet'],
+  Grey: ['gray', 'silver', 'slate'],
+  Multicolour: ['multicolor', 'rainbow'],
+};
+const SHADE_OF = Object.fromEntries(Object.entries(SHADES).flatMap(([main, list]) => list.map(w => [w, main])));
+const mainColour = shade => {
+  const t = shade.toLowerCase(), bracket = t.match(/\(([^)]+)\)\s*$/);
+  const pick = words => {
+    const mains = words.map(w => MAIN_COLOURS.find(c => c.toLowerCase() === w)).filter(Boolean);
+    if (mains.length) return mains.at(-1);
+    const phrase = Object.keys(SHADE_OF).find(k => k.includes(' ') && words.join(' ').includes(k));
+    return phrase ? SHADE_OF[phrase] : words.map(w => SHADE_OF[w]).filter(Boolean).at(-1);
+  };
+  return (bracket && pick(bracket[1].split(/[^a-z]+/))) || pick(t.replace(/\(.*$/, '').split(/[^a-z]+/).filter(Boolean)) || null;
+};
+// The shade as shown: without a bracketed main colour.
+const shadeName = shade => shade.replace(/\s*\([^)]*\)\s*$/, '');
 // Columns shown as colour-coded chips (each distinct value gets its own colour).
 const CHIP_COLS = CFG.chipCols || [];
 // Colour, chip and tag columns can list several values separated by commas or line breaks, e.g. "Pink, Orange";
@@ -74,7 +107,9 @@ const ROWS = DATA.rows.map((r, i) => {
   if (HAS_ADDED) r = [...DATA.columns.map((_, c) => r[c]), ADDED[i]];
   const v = COLS.map((name, c) => sentence(clean(name, String(r[c] ?? '')).trim()) || BLANK_AS[name.toLowerCase()] || '');
   return { i, v, hay: v.join(' \n ').toLowerCase(),
-    tok: v.map((x, c) => AT_LEAST.includes(COLS[c].toLowerCase()) ? atLeast(x) : [...new Set(splitCell(COLS[c], x))]) };
+    tok: v.map((x, c) => AT_LEAST.includes(COLS[c].toLowerCase()) ? atLeast(x)
+      : SWATCH_COLS.includes(COLS[c].toLowerCase()) ? [...new Set(splitCell(COLS[c], x).map(t => mainColour(t) || shadeName(t)))]
+      : [...new Set(splitCell(COLS[c], x))]) };
 });
 
 const kindOf = c => {
@@ -162,9 +197,10 @@ META.filter(m => CHIP_COLS.includes(m.name.toLowerCase())).forEach(m => {
 // Colour columns show a swatch of the named colour beside the value.
 const SWATCHES = { red: '#D2353B', pink: '#EC86B0', orange: '#F08A35', yellow: '#F3CB45', green: '#4C9A58', blue: '#4B80D2',
   purple: '#8B5CC4', white: '#FFFFFF', cream: '#F2E6C4', brown: '#7B5535', black: '#222222', grey: '#9A9A9A',
-  multicolour: 'conic-gradient(#D2353B, #F3CB45, #4C9A58, #4B80D2, #8B5CC4, #D2353B)' };
+  multicolour: 'conic-gradient(#D2353B, #F3CB45, #4C9A58, #4B80D2, #8B5CC4, #D2353B)',
+  iridescent: 'linear-gradient(135deg, #F4F1FF, #CDE7F7 35%, #F6D6EC 65%, #E3F5E6)' };
 const swatchCols = new Set(META.filter(m => SWATCH_COLS.includes(m.name.toLowerCase())).map(m => m.c));
-const swatch = v => SWATCHES[v.toLowerCase()] ? h('span', { class: 'swatch', style: 'background:' + SWATCHES[v.toLowerCase()], 'aria-hidden': 'true' }) : null;
+const swatch = v => { const c = SWATCHES[(mainColour(v) || '').toLowerCase()]; return c ? h('span', { class: 'swatch', style: 'background:' + c, 'aria-hidden': 'true' }) : null; };
 const chip = (c, v) => h('span', { class: 'pill chip-col ' + (chipColour.get(c)?.get(v) || 'no') }, v);
 const chips = (m, v) => h('span', { class: 'swatches chips' }, splitCell(m.name, v).map(t => chip(m.c, t)));
 
@@ -357,7 +393,8 @@ const cell = (m, v, first) => {
   if (first) return nameParts(v);
   if (chipColour.has(m.c)) return chips(m, v);
   if (TAG_COLS.includes(m.name.toLowerCase())) return h('span', { class: 'swatches' }, splitCell(m.name, v).map(t => h('span', { class: 'pill yes chip-col' }, t)));
-  if (swatchCols.has(m.c)) return h('span', { class: 'swatches stack' }, splitCell(m.name, v).map(t => h('span', { class: 'pill swatch-pill' }, swatch(t), t)));
+  if (swatchCols.has(m.c)) return h('span', { class: 'swatches stack' }, splitCell(m.name, v).map(t =>
+    h('span', { class: 'pill swatch-pill', title: mainColour(t) && mainColour(t) !== shadeName(t) ? mainColour(t) : null }, swatch(t), shadeName(t))));
   if (m.kind === 'number') return h('span', { class: 'num' }, v);
   if (m.kind === 'money') return h('span', { class: 'mono' }, v);
   if (m.kind === 'date') return h('span', { class: 'mono' }, new Date(v + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }));
