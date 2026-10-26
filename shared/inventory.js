@@ -230,6 +230,7 @@ const fill = (el, ...kids) => el.replaceChildren(...kids.flat().filter(k => k !=
 // ---------- header ----------
 const synced = DATA.synced ? new Date(DATA.synced) : null;
 const syncStatus = h('span', { class: 'sync-status', role: 'status' });
+const countEl = h('span', { class: 'count' });
 // Circular-arrows icon button; it spins while a sync runs.
 const syncBtn = h('button', { class: 'sync-btn', type: 'button', title: 'Sync now', 'aria-label': 'Sync now', onclick: () => syncNow() });
 syncBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
@@ -238,7 +239,8 @@ syncBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
 const syncedText = synced && 'synced ' + synced.toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
   ...(synced.getFullYear() !== new Date().getFullYear() && { year: 'numeric' }) });
 document.getElementById('sub').append(
-  h('b', {}, ROWS.length - SOLD_N), ` ${CFG.plural}`, SOLD_N ? ` (${SOLD_N} sold)` : '',
+  // "Showing X of Y flowers" (filled in by renderBar), then any sold count.
+  countEl, SOLD_N ? ` (${SOLD_N} sold)` : '',
   ...(syncedText ? [' · '] : []),
   // The sync time and icon sit in one row so the icon centres on the text.
   h('span', { class: 'synced-row' }, syncedText && DATA.sheet
@@ -491,9 +493,9 @@ const renderBar = () => {
   sortSel.replaceChildren(...SHOWN.filter(m => !NO_SORT.includes(m.name.toLowerCase()) || state.sort.c === m.c)
     .flatMap(m => [1, -1].map(dir => h('option', { value: `${m.c}:${dir}`, selected: state.sort.c === m.c && state.sort.dir === dir || null },
       `${m.name} ${sortWords(m.kind)[dir > 0 ? 0 : 1]}`))));
-  // Summary line: count and the sold toggle on the left, the total on the right; active filters below.
+  fill(countEl, 'Showing ', h('b', {}, state.view.length), ' of ', h('b', {}, inStock()), ` ${CFG.plural}`);
+  // Line above the table: the sold toggle on the left, the total on the right; active filters below.
   fill(bar,
-    h('span', { class: 'count' }, 'Showing ', h('b', {}, state.view.length), ' of ', h('b', {}, inStock()), ` ${CFG.plural}`),
     SOLD_N ? h('button', { class: 'chip sold-toggle', type: 'button', 'aria-pressed': String(state.showSold),
       onclick: () => { state.showSold = !state.showSold; try { localStorage.setItem(SHOW_SOLD_KEY, state.showSold ? '1' : '0'); } catch {} update(); } },
       `${state.showSold ? 'Hide' : 'Show'} sold (${SOLD_N})`) : null,
