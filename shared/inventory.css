@@ -35,8 +35,6 @@ body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);padding:0 1
 header.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin-bottom:22px}
 .title-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 h1{font:400 clamp(30px,5vw,44px)/1.05 var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
-.gh{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;color:var(--muted);flex-shrink:0}
-.gh:hover{color:var(--ink);background:var(--sunk)}
 .nav{font-size:14px;color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:4px 12px;background:var(--surface);white-space:nowrap}
 .nav:hover{background:var(--sunk)}
 .sub{color:var(--muted);margin:8px 0 0;font-size:14px}
