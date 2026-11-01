@@ -23,11 +23,12 @@ def get(url):
 
 
 class SheetImages(HTMLParser):
-    """Collects {sheet row number: first image URL in that row} from the htmlview table, and the row numbers it
-    shows (rows hidden in the sheet, e.g. by a filter, are left out of the htmlview)."""
+    """Collects {sheet row number: first image URL in that row} and {(row number, column number): first image URL in
+    that cell} (column A is 1) from the htmlview table, and the row numbers it shows (rows hidden in the sheet, e.g.
+    by a filter, are left out of the htmlview)."""
     def __init__(self):
         super().__init__()
-        self.images, self.rows, self.row, self.cell, self.rownum = {}, set(), False, -1, None
+        self.images, self.cells, self.rows, self.row, self.cell, self.rownum = {}, {}, set(), False, -1, None
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
@@ -37,6 +38,7 @@ class SheetImages(HTMLParser):
             self.cell += 1
         elif tag == "img" and self.rownum and self.cell > 0 and "sheets-images-rt" in a.get("src", ""):
             self.images.setdefault(self.rownum, a["src"])
+            self.cells.setdefault((self.rownum, self.cell), a["src"])
 
     def handle_data(self, data):
         if self.row and self.cell == 0 and data.strip().isdigit() and self.rownum is None:
@@ -86,6 +88,11 @@ TABS = [
     ("0", "flower-inventory/index.html", "flower-inventory/images.json"),          # flowers
     ("1990863409", "juju-inventory/index.html", "juju-inventory/images.json"),     # jujus
 ]
+# Tabs that hold only photos, no headings or text: read along each row from A1 to the first empty cell, row by row
+# down to the first row with nothing in column A. Same (gid, page, thumbnails file) layout as TABS.
+PHOTO_TABS = [
+    ("449685886", "murakami/index.html", "murakami/images.json"),                  # murakami
+]
 
 
 def read_tab(gid, out_dir):
@@ -110,17 +117,43 @@ def read_tab(gid, out_dir):
         sys.exit(f"Tab {gid}: {len(hidden)} rows are hidden in the sheet (a filter is on, or rows are hidden), so "
                  f"their photos can't be read. Turn the filter off or unhide them. Nothing published.")
 
-    jobs = {k: parser.images[sheet_row] for k, (sheet_row, _) in enumerate(kept) if sheet_row in parser.images}
+    jobs = {str(k): parser.images[sheet_row] for k, (sheet_row, _) in enumerate(kept) if sheet_row in parser.images}
+    images, photos = download(gid, jobs, out_dir)
+    return cols, [r + [""] * (len(cols) - len(r)) for _, r in kept], images, photos
+
+
+def download(gid, urls, out_dir):
+    """Downloads urls ({key: image URL}) as (thumbnails, photos), each keyed the same way."""
     images, photos = {}, {}
     with ThreadPoolExecutor(8) as pool:
-        for k, res in zip(jobs, pool.map(lambda u: photo(u, out_dir), jobs.values())):
+        for k, res in zip(urls, pool.map(lambda u: photo(u, out_dir), urls.values())):
             if res:
-                images[str(k)], photos[str(k)] = res
+                images[k], photos[k] = res
     # Google sometimes throttles downloads; publishing then would drop most photos from the page.
-    failed = len(jobs) - len(images)
-    if failed > len(jobs) / 10:
-        sys.exit(f"Tab {gid}: {failed} of {len(jobs)} photos failed to download. Nothing published.")
-    return cols, [r + [""] * (len(cols) - len(r)) for _, r in kept], images, photos
+    failed = len(urls) - len(images)
+    if failed > len(urls) / 10:
+        sys.exit(f"Tab {gid}: {failed} of {len(urls)} photos failed to download. Nothing published.")
+    return images, photos
+
+
+def read_photo_tab(gid, out_dir):
+    """Returns (thumbnails, photos) for a PHOTO_TABS tab, keyed by reading order (as a string)."""
+    html_view, _ = get(SHEET + f"/htmlview/sheet?headers=true&gid={gid}")
+    parser = SheetImages()
+    parser.feed(html_view.decode("utf-8", "replace"))
+    urls, row = [], 1
+    while (row, 1) in parser.cells:
+        col = 1
+        while (row, col) in parser.cells:
+            urls.append(parser.cells[(row, col)])
+            col += 1
+        row += 1
+    if not urls:
+        sys.exit(f"Tab {gid} has no photo in A1 (sheet no longer shared by link, or tab deleted). Nothing published.")
+    if row not in parser.rows and any(n > row for n in parser.images):
+        sys.exit(f"Tab {gid}: row {row} is hidden in the sheet (a filter is on, or rows are hidden), so the photos "
+                 f"after it can't be read. Turn the filter off or unhide it. Nothing published.")
+    return download(gid, {str(k): u for k, u in enumerate(urls)}, out_dir)
 
 
 def added_dates(old, cols, rows, today, old_photos=None, new_photos=None):
@@ -183,9 +216,10 @@ def added_dates(old, cols, rows, today, old_photos=None, new_photos=None):
 def main(out_dir="."):
     os.makedirs(os.path.join(out_dir, PHOTO_DIR), exist_ok=True)
     tabs = [(page, thumbs, *read_tab(gid, out_dir)) for gid, page, thumbs in TABS]
+    photo_tabs = [(page, thumbs, *read_photo_tab(gid, out_dir)) for gid, page, thumbs in PHOTO_TABS]
 
     # Drop high-resolution files no longer used by any row of any tab.
-    keep = {os.path.basename(p["src"]) for *_, photos in tabs for p in photos.values()}
+    keep = {os.path.basename(p["src"]) for *_, photos in tabs + photo_tabs for p in photos.values()}
     for f in os.listdir(os.path.join(out_dir, PHOTO_DIR)):
         if f not in keep:
             os.remove(os.path.join(out_dir, PHOTO_DIR, f))
@@ -224,11 +258,22 @@ def main(out_dir="."):
         }
         blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
         pages[page] = re.sub(pattern, lambda m: m.group(1) + blob + m.group(3), html, count=1, flags=re.S)
+    for page, thumbs, images, photos in photo_tabs:
+        html = open(page, encoding="utf-8").read()
+        if not re.search(pattern, html, re.S):
+            sys.exit(f"{page} has no sheet-data block. Nothing published.")
+        data = {"synced": synced, "photos": photos, "sheet": SHEET + "/edit?usp=sharing"}
+        blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
+        pages[page] = re.sub(pattern, lambda m: m.group(1) + blob + m.group(3), html, count=1, flags=re.S)
 
     for page, thumbs, cols, rows, images, photos in tabs:
         open(os.path.join(out_dir, page), "w", encoding="utf-8").write(pages[page])
         json.dump(images, open(os.path.join(out_dir, thumbs), "w"), separators=(",", ":"))
         print(f"{page}: {len(cols)} columns, {len(rows)} rows, {len(images)} photos")
+    for page, thumbs, images, photos in photo_tabs:
+        open(os.path.join(out_dir, page), "w", encoding="utf-8").write(pages[page])
+        json.dump(images, open(os.path.join(out_dir, thumbs), "w"), separators=(",", ":"))
+        print(f"{page}: {len(images)} photos")
 
 
 if __name__ == "__main__":
