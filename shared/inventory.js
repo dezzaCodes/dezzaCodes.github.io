@@ -125,7 +125,8 @@ const META = COLS.map((name, c) => ({ name, c, kind: kindOf(c) }));
 const ORDER = (CFG.order || []).map(cfgName);
 const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 ? ORDER.length + m.c : k; };
 // A "sold" column marks sold items: anything typed in it (yes, a date, a ticked checkbox) except no/false/0.
-// It isn't shown as a column; sold rows are left out of the table and every count unless "Show sold" is on.
+// It isn't shown as a column; sold rows are left out of the table and every count unless "Show sold" is ticked in
+// the filter panel.
 const SOLD_C = META.findIndex(m => m.name.toLowerCase() === 'sold');
 ROWS.forEach(r => { r.sold = SOLD_C >= 0 && !!r.v[SOLD_C] && !/^(no|n|false|0|-)$/i.test(r.v[SOLD_C]); });
 const SOLD_N = ROWS.filter(r => r.sold).length;
@@ -239,8 +240,8 @@ syncBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
 const syncedText = synced && 'synced ' + synced.toLocaleString('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
   ...(synced.getFullYear() !== new Date().getFullYear() && { year: 'numeric' }) });
 document.getElementById('sub').append(
-  // "Showing X of Y flowers" (filled in by renderBar), then any sold count.
-  countEl, SOLD_N ? ` (${SOLD_N} sold)` : '',
+  // "Showing X of Y flowers" (filled in by renderBar).
+  countEl,
   ...(syncedText ? [' · '] : []),
   // The sync time and icon sit in one row so the icon centres on the text.
   h('span', { class: 'synced-row' }, syncedText && DATA.sheet
@@ -316,6 +317,16 @@ const passes = (r, skip) => {
 // ---------- facets ----------
 const facetEls = new Map();
 const facetsBox = document.getElementById('facets');
+// First in the panel: whether sold items are shown at all.
+if (SOLD_N) {
+  const cb = h('input', { type: 'checkbox', id: 'f-sold', checked: state.showSold || null, onchange: () => {
+    state.showSold = cb.checked;
+    try { localStorage.setItem(SHOW_SOLD_KEY, state.showSold ? '1' : '0'); } catch {}
+    update();
+  }});
+  facetsBox.append(h('details', { class: 'facet', open: true }, h('summary', {}, h('span', { class: 'name' }, 'Sold')),
+    h('div', { class: 'opts' }, h('label', { class: 'opt', for: cb.id }, cb, h('span', {}, 'Show sold'), h('span', { class: 'c' }, SOLD_N)))));
+}
 for (const m of FACETED) {
   const counts = new Map();
   ROWS.forEach(r => r.tok[m.c].forEach(t => counts.set(t, (counts.get(t) || 0) + 1)));
@@ -363,14 +374,14 @@ const updateFacets = () => {
 // ---------- table ----------
 const thead = document.getElementById('thead');
 const renderHead = () => {
-  // Above the photos: an unlabelled button that sorts by the photo bar's column (the price), arrow shown once active.
+  // Above the photos: a "$" button that sorts by the photo bar's column (the price), arrow shown once active.
   const barOn = BAR_MAIN && state.sort.c === BAR_MAIN.c;
   const imgHead = !HAS_IMG ? [] : [BAR_MAIN
     ? h('th', { class: 'img-cell', 'aria-sort': barOn ? (state.sort.dir > 0 ? 'ascending' : 'descending') : null },
         h('button', { type: 'button', title: `Sort by ${BAR_MAIN.name.toLowerCase()}`, onclick: () => {
           state.sort = { c: BAR_MAIN.c, dir: barOn ? -state.sort.dir : 1 };
           update();
-        }}, h('span', { class: 'sr' }, `Image. Sort by ${BAR_MAIN.name.toLowerCase()}`),
+        }}, h('span', { class: 'sr' }, `Image. Sort by ${BAR_MAIN.name.toLowerCase()}`), h('span', { 'aria-hidden': 'true' }, '$'),
           barOn ? h('span', { class: 'arrow', 'aria-hidden': 'true' }, state.sort.dir < 0 ? '↓' : '↑') : null))
     : h('th', { class: 'img-cell' }, h('span', { class: 'sr' }, 'Image'))];
   thead.replaceChildren(...imgHead, ...TABLE.map(m => {
@@ -494,12 +505,8 @@ const renderBar = () => {
     .flatMap(m => [1, -1].map(dir => h('option', { value: `${m.c}:${dir}`, selected: state.sort.c === m.c && state.sort.dir === dir || null },
       `${m.name} ${sortWords(m.kind)[dir > 0 ? 0 : 1]}`))));
   fill(countEl, 'Showing ', h('b', {}, state.view.length), ' of ', h('b', {}, inStock()), ` ${CFG.plural}`);
-  // Line above the table: the sold toggle on the left, the total on the right; active filters below.
-  fill(bar,
-    SOLD_N ? h('button', { class: 'chip sold-toggle', type: 'button', 'aria-pressed': String(state.showSold),
-      onclick: () => { state.showSold = !state.showSold; try { localStorage.setItem(SHOW_SOLD_KEY, state.showSold ? '1' : '0'); } catch {} update(); } },
-      `${state.showSold ? 'Hide' : 'Show'} sold (${SOLD_N})`) : null,
-    totalEl());
+  // Line above the table: the total on the right; active filters below.
+  fill(bar, totalEl());
   fill(activeFilters, chips);
   activeFilters.hidden = !chips.length;
   document.getElementById('clearAll').hidden = !n;
