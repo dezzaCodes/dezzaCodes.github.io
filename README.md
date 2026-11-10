@@ -6,6 +6,7 @@ This repo is the site at **https://dezzacodes.github.io/**:
 - https://dezzacodes.github.io/juju-inventory/
 - https://dezzacodes.github.io/cj-money/
 - https://dezzacodes.github.io/murakami/
+- https://dezzacodes.github.io/smiski/
 
 (`/gym/` and `/rewards/` come from their own repos.)
 

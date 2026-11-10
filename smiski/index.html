@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Smiski</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600&display=swap">
+<link rel="icon" href="../shared/icons/favicon.ico" sizes="any">
+<link rel="icon" href="../shared/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../shared/icons/apple-touch-icon.png">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#F4F6F1; --surface:#FFFFFF; --sunk:#EBEFE7; --ink:#1E2620; --muted:#5D6A61; --line:#DCE2D8; --accent:#7B2E63;
+  --display:"Young Serif",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#121613; --surface:#1A201C; --sunk:#151A16; --ink:#E7ECE5; --muted:#A0ACA3; --line:#2C352F; --accent:#DE93C4;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121613; --surface:#1A201C; --sunk:#151A16; --ink:#E7ECE5; --muted:#A0ACA3; --line:#2C352F; --accent:#DE93C4;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);padding:0 16px}
+.wrap{max-width:1100px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 32px) 0 48px}
+.top{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 10px;margin-bottom:20px}
+h1{font:400 clamp(30px,5vw,44px)/1.05 var(--display);margin:0;letter-spacing:-.01em}
+.nav{font-size:14px;color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:4px 12px;background:var(--surface);white-space:nowrap}
+.nav:hover{background:var(--sunk)}
+.nav.icon{font-size:17px;line-height:1.2;padding:3px 10px}
+.sub{flex-basis:100%;margin:0;color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Smiski</h1>
+    <a class="nav icon" href="../flower-inventory/" aria-label="Flowers" title="Flowers">🌻</a>
+    <a class="nav icon" href="../juju-inventory/" aria-label="Jujus" title="Jujus">🧸</a>
+    <a class="nav icon" href="../murakami/" aria-label="Murakami" title="Murakami">🌸</a>
+    <a class="nav icon" href="../cj-money/" aria-label="CJ Money" title="CJ Money">💵</a>
+    <p class="sub">Nothing here yet.</p>
+  </header>
+</div>
+</body>
+</html>
