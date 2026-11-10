@@ -39,6 +39,7 @@ h1{font:400 clamp(30px,5vw,44px)/1.05 var(--display);margin:0;letter-spacing:-.0
 .nav{font-size:14px;color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:4px 12px;background:var(--surface)}
 .nav:hover{background:var(--sunk)}
 .nav.icon{font-size:17px;line-height:1.2;padding:3px 10px}
+.nav[aria-current]{background:var(--sunk);border-color:var(--accent)}
 .sub{color:var(--muted);margin:6px 0 0;font-size:14px}
 .sub.err{color:var(--loss)}
 a{color:var(--accent)}
@@ -146,6 +147,7 @@ tr.editing .actions .del{margin-right:auto;color:var(--loss)}
       <a class="nav icon" href="../flower-inventory/" aria-label="Flowers" title="Flowers">🌻</a>
       <a class="nav icon" href="../juju-inventory/" aria-label="Jujus" title="Jujus">🧸</a>
       <a class="nav icon" href="../murakami/" aria-label="Murakami" title="Murakami">🌸</a>
+      <a class="nav icon" href="../cj-money/" aria-label="CJ Money" title="CJ Money" aria-current="page">💵</a>
       <a class="nav icon" href="../smiski/" aria-label="Smiski" title="Smiski">🤢</a>
     </div>
     <p class="sub" id="status">Loading…</p>

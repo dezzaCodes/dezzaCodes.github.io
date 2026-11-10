@@ -38,6 +38,7 @@ h1{font:400 clamp(30px,5vw,44px)/1.05 var(--display);margin:0;letter-spacing:-.0
 .nav{font-size:14px;color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:4px 12px;background:var(--surface);white-space:nowrap}
 .nav:hover{background:var(--sunk)}
 .nav.icon{font-size:17px;line-height:1.2;padding:3px 10px}
+.nav[aria-current]{background:var(--sunk);border-color:var(--accent)}
 .sub{color:var(--muted);margin:8px 0 0;font-size:14px}
 .sub b{color:var(--ink);font-weight:600}
 .search{position:relative;flex:1 1 200px;max-width:380px}
