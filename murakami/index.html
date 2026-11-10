@@ -84,7 +84,7 @@ function tile(inner, full) {
 }
 
 if (keys.length) {
-  document.getElementById('sub').textContent = `${keys.length} photo${keys.length === 1 ? '' : 's'}`;
+  document.getElementById('sub').textContent = `${keys.length} pin${keys.length === 1 ? '' : 's'}`;
   const imgs = {};
   for (const k of keys) {
     const img = document.createElement('img');
@@ -99,7 +99,7 @@ if (keys.length) {
     for (const k of keys) imgs[k].src = thumbs[k] || '../' + DATA.photos[k].src;
   });
 } else {
-  document.getElementById('sub').textContent = 'No photos yet: they come from the sheet\u2019s murakami tab.';
+  document.getElementById('sub').textContent = 'No pins yet: they come from the sheet\u2019s murakami tab.';
 }
 viewer.addEventListener('close', () => big.removeAttribute('src'));
 </script>

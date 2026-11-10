@@ -263,9 +263,9 @@ let statusMsg = null;
 function setStatus(msg, err) { statusMsg = msg ? { msg, err } : null; renderStatus(); }
 function renderStatus() {
   statusEl.className = 'sub' + (statusMsg?.err ? ' err' : '');
-  if (statusMsg) { statusEl.replaceChildren(statusMsg.msg); return; }
-  statusEl.replaceChildren(unsaved.length ? 'Saving…' : 'Saved to your private GitHub repo', ' · ',
-    h('button', { class: 'linkbtn', type: 'button', onclick: () => { if (confirm('Forget the GitHub token on this device?')) { store.clear(); location.reload(); } } }, 'Disconnect this device'));
+  // Shown only for errors, setup messages and while saving.
+  statusEl.replaceChildren(statusMsg ? statusMsg.msg : unsaved.length ? 'Saving…' : '');
+  statusEl.hidden = !statusMsg && !unsaved.length;
 }
 
 const TITLES = { income: 'Income', expense: 'Expenses' };
