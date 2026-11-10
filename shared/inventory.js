@@ -206,9 +206,9 @@ const chip = (c, v) => h('span', { class: 'pill chip-col ' + (chipColour.get(c)?
 const chips = (m, v) => h('span', { class: 'swatches chips' }, splitCell(m.name, v).map(t => chip(m.c, t)));
 
 // Default sort: CFG.sortBy's column if the page names one, else the first column; ties go by the first column.
-const SHOW_SOLD_KEY = `${CFG.plural}-show-sold`;
+// Sold items start hidden on every visit.
 const state = { q: '', sort: { c: Math.max(0, colIdx(cfgName(CFG.sortBy))), dir: CFG.sortDir || 1 }, sel: new Map(), view: [],
-  showSold: (() => { try { return localStorage.getItem(SHOW_SOLD_KEY) === '1'; } catch { return false; } })() };
+  showSold: false };
 // How many rows the current sold setting allows, before search and filters.
 const inStock = () => (state.showSold ? ROWS.length : ROWS.length - SOLD_N);
 const soldPill = r => (r.sold ? h('span', { class: 'pill sold-pill' }, 'Sold') : null);
@@ -322,7 +322,6 @@ if (SOLD_N) {
   const sw = h('button', { class: 'sold-switch', type: 'button', role: 'switch', 'aria-checked': String(state.showSold), onclick: () => {
     state.showSold = !state.showSold;
     sw.setAttribute('aria-checked', String(state.showSold));
-    try { localStorage.setItem(SHOW_SOLD_KEY, state.showSold ? '1' : '0'); } catch {}
     update();
   }}, h('span', {}, 'Show sold'), h('span', { class: 'c' }, SOLD_N), h('span', { class: 'knob', 'aria-hidden': 'true' }));
   facetsBox.append(sw);
