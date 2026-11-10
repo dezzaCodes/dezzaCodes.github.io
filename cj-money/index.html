@@ -270,7 +270,8 @@ function renderStatus() {
 
 const TITLES = { income: 'Income', expense: 'Expenses' };
 // Every entry belongs to one business.
-const CATS = { flowers: 'Flowers', juju: 'Juju' };
+const CATS = { flowers: '🌻', juju: '🧸' };
+const CAT_NAMES = { flowers: 'Flowers', juju: 'Juju' };
 // Which businesses are shown. Each can be switched on or off independently; all are on until changed.
 const SHOWN_KEY = 'flower-ledger-shown';
 const shown = new Set((() => {
@@ -285,7 +286,7 @@ const toggleCat = c => {
   editing = null; saveShown(); render();
 };
 const catSelect = (value, label) => h('select', { class: 'field', name: 'category', 'aria-label': label },
-  Object.entries(CATS).map(([k, name]) => h('option', { value: k, selected: k === value || null }, name)));
+  Object.entries(CATS).map(([k, name]) => h('option', { value: k, selected: k === value || null, 'aria-label': CAT_NAMES[k] }, name)));
 const totals = d => {
   const t = { income: 0, expense: 0 };
   d.entries.forEach(e => t[e.type] += e.cents);
@@ -302,7 +303,7 @@ function render() {
   const all = current(), d = { entries: all.entries.filter(e => shown.has(e.category)) };
   const t = totals(d), net = t.income - t.expense;
   document.getElementById('toggles').replaceChildren(...Object.entries(CATS).map(([k, name]) =>
-    h('button', { class: 'tog ' + k, type: 'button', 'aria-pressed': String(shown.has(k)), onclick: () => toggleCat(k) }, name)));
+    h('button', { class: 'tog ' + k, type: 'button', 'aria-pressed': String(shown.has(k)), 'aria-label': CAT_NAMES[k], title: CAT_NAMES[k], onclick: () => toggleCat(k) }, name)));
   document.getElementById('tiles').replaceChildren(
     h('div', { class: 'tile' }, h('span', { class: 'eyebrow' }, 'Income'), h('span', { class: 'v' }, fmt(t.income))),
     h('div', { class: 'tile' }, h('span', { class: 'eyebrow' }, 'Expenses'), h('span', { class: 'v' }, fmt(t.expense))),
@@ -325,9 +326,9 @@ function renderLedger(d, type, total) {
   const rows = list.map(e => e.id === editing ? editRow(e) : h('tr', { class: 'row', tabindex: 0, title: 'Edit',
     onclick: () => startEdit(e.id),
     onkeydown: ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); startEdit(e.id); } } },
-    h('td', {}, e.desc, view === 'all' ? h('span', { class: 'cat ' + e.category }, CATS[e.category]) : null, h('span', { class: 'when' }, fmtDate(e.date))), h('td', { class: 'amt' }, fmt(e.cents))));
+    h('td', {}, e.desc, view === 'all' ? h('span', { class: 'cat ' + e.category, title: CAT_NAMES[e.category] }, CATS[e.category]) : null, h('span', { class: 'when' }, fmtDate(e.date))), h('td', { class: 'amt' }, fmt(e.cents))));
   if (!list.length) rows.push(h('tr', { class: 'empty' }, h('td', { colspan: 2 },
-    shown.size ? `No ${TITLES[type].toLowerCase()} yet.` : 'Tick Flowers or Juju above to see entries.')));
+    shown.size ? `No ${TITLES[type].toLowerCase()} yet.` : 'Tick 🌻 or 🧸 above to see entries.')));
 
   const desc = h('input', { class: 'field desc', name: 'desc', placeholder: 'Description', 'aria-label': 'Description', required: true, autocomplete: 'off' });
   const amt = h('input', { class: 'field amount', name: 'amount', placeholder: '0.00', inputmode: 'decimal', 'aria-label': 'Amount', required: true, autocomplete: 'off' });
