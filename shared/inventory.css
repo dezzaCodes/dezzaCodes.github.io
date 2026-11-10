@@ -86,6 +86,15 @@ details.facet summary > .name{flex:1}
 .opt > span:not(.c){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .opt .c{font:12px var(--mono);color:var(--faint);font-variant-numeric:tabular-nums}
 .opt.zero{opacity:.42}
+.sold-switch{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 10px;padding:6px;border:0;border-radius:6px;background:none;color:inherit;font:inherit;font-size:14px;cursor:pointer;text-align:left}
+.sold-switch:hover{background:var(--sunk)}
+.sold-switch > span:first-child{flex:1}
+.sold-switch .c{font:12px var(--mono);color:var(--faint);font-variant-numeric:tabular-nums}
+.sold-switch .knob{position:relative;flex-shrink:0;width:34px;height:20px;border-radius:99px;background:var(--line);transition:background .15s}
+.sold-switch .knob::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.sold-switch[aria-checked="true"] .knob{background:var(--accent)}
+.sold-switch[aria-checked="true"] .knob::after{transform:translateX(14px)}
+@media (prefers-reduced-motion:reduce){.sold-switch .knob,.sold-switch .knob::after{transition:none}}
 
 .summary{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-height:30px}
 .active-filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}

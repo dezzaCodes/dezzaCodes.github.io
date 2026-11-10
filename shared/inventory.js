@@ -125,8 +125,8 @@ const META = COLS.map((name, c) => ({ name, c, kind: kindOf(c) }));
 const ORDER = (CFG.order || []).map(cfgName);
 const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 ? ORDER.length + m.c : k; };
 // A "sold" column marks sold items: anything typed in it (yes, a date, a ticked checkbox) except no/false/0.
-// It isn't shown as a column; sold rows are left out of the table and every count unless "Show sold" is ticked in
-// the filter panel.
+// It isn't shown as a column; sold rows are left out of the table and every count unless the "Show sold" switch at
+// the top of the filter panel is on.
 const SOLD_C = META.findIndex(m => m.name.toLowerCase() === 'sold');
 ROWS.forEach(r => { r.sold = SOLD_C >= 0 && !!r.v[SOLD_C] && !/^(no|n|false|0|-)$/i.test(r.v[SOLD_C]); });
 const SOLD_N = ROWS.filter(r => r.sold).length;
@@ -317,15 +317,15 @@ const passes = (r, skip) => {
 // ---------- facets ----------
 const facetEls = new Map();
 const facetsBox = document.getElementById('facets');
-// First in the panel: whether sold items are shown at all.
+// First in the panel: a switch for whether sold items are shown at all.
 if (SOLD_N) {
-  const cb = h('input', { type: 'checkbox', id: 'f-sold', checked: state.showSold || null, onchange: () => {
-    state.showSold = cb.checked;
+  const sw = h('button', { class: 'sold-switch', type: 'button', role: 'switch', 'aria-checked': String(state.showSold), onclick: () => {
+    state.showSold = !state.showSold;
+    sw.setAttribute('aria-checked', String(state.showSold));
     try { localStorage.setItem(SHOW_SOLD_KEY, state.showSold ? '1' : '0'); } catch {}
     update();
-  }});
-  facetsBox.append(h('details', { class: 'facet', open: true }, h('summary', {}, h('span', { class: 'name' }, 'Sold')),
-    h('div', { class: 'opts' }, h('label', { class: 'opt', for: cb.id }, cb, h('span', {}, 'Show sold'), h('span', { class: 'c' }, SOLD_N)))));
+  }}, h('span', {}, 'Show sold'), h('span', { class: 'c' }, SOLD_N), h('span', { class: 'knob', 'aria-hidden': 'true' }));
+  facetsBox.append(sw);
 }
 for (const m of FACETED) {
   const counts = new Map();
