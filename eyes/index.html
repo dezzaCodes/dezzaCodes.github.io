@@ -4,79 +4,178 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Eyes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="../shared/inventory.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600&display=swap">
 <link rel="icon" href="../shared/icons/favicon.ico" sizes="any">
 <link rel="icon" href="../shared/icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../shared/icons/apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Eyes">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#F4F6F1; --surface:#FFFFFF; --sunk:#EBEFE7; --ink:#1E2620; --muted:#5D6A61; --line:#DCE2D8; --accent:#7B2E63;
+  --display:"Young Serif",Georgia,"Times New Roman",serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#121613; --surface:#1A201C; --sunk:#151A16; --ink:#E7ECE5; --muted:#A0ACA3; --line:#2C352F; --accent:#DE93C4;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121613; --surface:#1A201C; --sunk:#151A16; --ink:#E7ECE5; --muted:#A0ACA3; --line:#2C352F; --accent:#DE93C4;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);padding:0 16px}
+.wrap{max-width:1100px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 32px) 0 48px}
+.top{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 10px;margin-bottom:20px}
+h1{font:400 clamp(30px,5vw,44px)/1.05 var(--display);margin:0;letter-spacing:-.01em}
+.nav{font-size:14px;color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:4px 12px;background:var(--surface);white-space:nowrap}
+.nav:hover{background:var(--sunk)}
+.nav.icon{font-size:17px;line-height:1.2;padding:3px 10px}
+.nav[aria-current]{background:var(--sunk);border-color:var(--accent)}
+.sub{flex-basis:100%;margin:0;color:var(--muted);font-size:14px}
+.grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+@media (min-width:640px){.grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}}
+.tile{display:block;width:100%;aspect-ratio:1;padding:0;border:0;border-radius:6px;overflow:hidden;background:var(--sunk);cursor:zoom-in}
+.tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tile img{display:block;width:100%;height:100%;object-fit:cover}
+dialog{border:0;padding:0;max-width:100vw;max-height:100vh;width:100vw;height:100vh;background:rgba(10,12,10,.92)}
+dialog::backdrop{background:transparent}
+dialog form{width:100%;height:100%;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:calc(env(safe-area-inset-top,0px) + 48px) 16px calc(env(safe-area-inset-bottom,0px) + 24px)}
+dialog img{flex:0 1 auto;min-height:0;max-width:100%;max-height:100%;object-fit:contain;border-radius:4px}
+/* What's in the photo, from the row under it in the sheet. */
+.details{flex:none;margin:0;max-width:640px;color:#fff;font:500 18px/1.45 var(--body);text-align:center;white-space:pre-line}
+dialog button{all:unset;position:fixed;inset:0;cursor:zoom-out}
+.close{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);right:16px;color:#fff;font-size:28px;line-height:1;pointer-events:none}
+
+/* Search and From filters. */
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.tools input{flex:1 1 220px;max-width:360px;font:inherit;padding:9px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
+.filter{font:inherit;font-size:14px;color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:6px 12px;background:var(--surface);cursor:pointer}
+.filter span{color:var(--muted);margin-left:4px}
+.filter[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.filter[aria-pressed="true"] span{color:inherit;opacity:.8}
+.empty{color:var(--muted);padding:24px 0}
+@media (max-width:639px){.tools input{flex-basis:100%;max-width:none}}
+/* From along the top of each tile, the description along the bottom. */
+.tile{position:relative}
+.tile .from,.tile .desc{position:absolute;left:0;right:0;padding:6px 8px;color:#fff;font:600 12px/1.25 var(--body);text-align:left;text-shadow:0 1px 2px rgba(0,0,0,.5);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.tile .from{top:0;background:linear-gradient(rgba(0,0,0,.55),transparent);letter-spacing:.04em}
+.tile .desc{bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.65));font-weight:500;padding-top:14px}
+@media (min-width:640px){.tile .from,.tile .desc{font-size:14px;padding:8px 10px}}
+.details b{display:block;font-size:14px;letter-spacing:.06em;opacity:.75;margin-bottom:2px}
+</style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="title-block">
-      <div class="title-row">
-        <h1>Eyes</h1>
-        <a class="nav icon" href="../flower-inventory/" aria-label="Flowers" title="Flowers">🌻</a>
-        <a class="nav icon" href="../juju-inventory/" aria-label="Jujus" title="Jujus">🧸</a>
-        <a class="nav icon" href="../murakami/" aria-label="Murakami" title="Murakami">🌸</a>
-        <a class="nav icon" href="../cj-money/" aria-label="CJ Money" title="CJ Money">💵</a>
-        <a class="nav icon" href="../smiski/" aria-label="Smiski" title="Smiski">🤢</a>
-        <a class="nav icon" href="../eyes/" aria-label="Eyes" title="Eyes" aria-current="page">👁️</a>
-      </div>
-      <p class="sub" id="sub"></p>
-    </div>
-    <label class="search">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" type="search" placeholder="Search every column…" aria-label="Search every column" autocomplete="off">
-    </label>
+    <h1>Eyes</h1>
+    <a class="nav icon" href="../flower-inventory/" aria-label="Flowers" title="Flowers">🌻</a>
+    <a class="nav icon" href="../juju-inventory/" aria-label="Jujus" title="Jujus">🧸</a>
+    <a class="nav icon" href="../murakami/" aria-label="Murakami" title="Murakami">🌸</a>
+    <a class="nav icon" href="../cj-money/" aria-label="CJ Money" title="CJ Money">💵</a>
+    <a class="nav icon" href="../smiski/" aria-label="Smiski" title="Smiski">🤢</a>
+    <a class="nav icon" href="../eyes/" aria-label="Eyes" title="Eyes" aria-current="page">👁️</a>
+    <p class="sub" id="sub"></p>
   </header>
-
-  <div class="layout">
-    <aside class="filters" id="filters" aria-label="Filters">
-      <div class="filters-head"><span class="eyebrow">Filter by column</span><button class="linkbtn" id="clearAll" hidden>Clear all</button><button class="close-filters phone-flex" id="closeFilters" type="button" aria-label="Close filters">×</button></div>
-      <div id="facets"></div>
-      <div class="filters-done phone-block"><button class="done-btn" id="doneFilters" type="button">Show eyes</button></div>
-    </aside>
-    <main>
-      <div class="toolbar" id="toolbar">
-        <button class="chip show-filters" id="showFilters" type="button">Filters</button>
-        <div class="summary" id="bar"></div>
-        <label class="sort-menu">Sort by <select id="sortSel"></select></label>
-      </div>
-      <div class="active-filters" id="activeFilters" hidden></div>
-      <div class="table-box" id="tableBox"><table><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table><div class="empty" id="empty" hidden>No eyes match these filters.</div></div>
-    </main>
+  <div class="tools" id="tools">
+    <input id="q" type="search" placeholder="Search…" aria-label="Search" autocomplete="off">
   </div>
+  <ul class="grid" id="grid"></ul>
+  <p class="empty" id="empty" hidden>No eyes match.</p>
 </div>
-<button class="to-top off" id="toTop" type="button" aria-label="Back to top" title="Back to top" tabindex="-1">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-</button>
-<div class="scrim" id="scrim" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></div></div>
+<dialog id="viewer"><form method="dialog"><img id="big" alt=""><p class="details" id="details" hidden></p><button aria-label="Close"></button><span class="close" aria-hidden="true">×</span></form></dialog>
 
-<script>
-window.INVENTORY = {
-  "noun": "eye",
-  "plural": "eyes",
-  "images": "images.json",
-  "photoBase": "../",
-  "order": ["from", "description", "added"],
-  "noFilter": ["description", "added"],
-  "chipCols": ["from"],
-  "sibText": "description",
-  "sibChip": "from",
-  "sortBy": "added",
-  "sortDir": -1,
-  "noSort": ["description"]
-};
-</script>
 <script type="application/json" id="sheet-data">{"synced": "2026-11-13T16:58:35+00:00", "columns": ["from", "image", "description"], "rows": [["JJW HK", "", ""], ["JJ&F", "", ""], ["JJW HK", "", ""], ["JJ&F", "", "blue zuzu"], ["JJW HK", "", ""], ["JJ&F", "", ""], ["JJW HK", "", ""], ["JJ&F", "", "blue lulu/pink tutu"], ["JJ&F", "", "red zuzu"], ["JJW HK", "", ""], ["JJ&F", "", ""], ["JJ&F", "", ""], ["JJ&F", "", ""], ["JJ&F", "", ""], ["JJ&F", "", " black zuzu"], ["JJ&F", "", "green tutu"], ["JJW HK", "", ""], ["JJ&F", "", "yellow lulu"], ["JJW HK, JJ&F", "", "orange juju"], ["JJ&F", "", ""], ["JJ&F", "", "orange lulu/yellow tutu"], ["JJ&F", "", ""], ["JJW HK", "", ""], ["JJ&F", "", " brown lulu?"], ["JJW HK", "", ""], ["JJ&F", "", "green zuzu"], ["JJ&F", "", "brown lulu"], ["JJ&F", "", "orange juju"], ["JJW HK", "", ""], ["JJ&F", "", "pinks"], ["JJW HK", "", ""], ["JJW HK", "", ""], ["JJW HK", "", ""], ["JJW HK", "", ""], ["JJW HK", "", ""], ["JJW HK", "", ""], ["JJ&F", "", ""], ["JJ&F", "", ""], ["JJ&F", "", ""], ["JJ&F", "", "blue juju"], ["JJ&F", "", "purple juju"], ["JJW HK, JJ&F", "", "red tutu"], ["JJW HK", "", ""]], "added": ["2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14", "2026-11-14"], "images": 41, "photos": {"0": {"src": "photos/032c5cd03fbf3a4f.webp", "w": 1600, "h": 1600}, "1": {"src": "photos/88017c7a44ed48e8.webp", "w": 1600, "h": 1600}, "2": {"src": "photos/6b16fbb266ee4dc8.webp", "w": 1600, "h": 1600}, "3": {"src": "photos/940f45ca9304e848.webp", "w": 186, "h": 176}, "4": {"src": "photos/8264040a9d82290e.webp", "w": 1600, "h": 1600}, "5": {"src": "photos/0d4e5ea7499f3d3a.webp", "w": 1600, "h": 1600}, "6": {"src": "photos/5fde3c1b7c11d8bd.webp", "w": 1600, "h": 1600}, "7": {"src": "photos/6e3aeaf88dd8503f.webp", "w": 182, "h": 186}, "8": {"src": "photos/9e9a3b7dcfcde58e.webp", "w": 198, "h": 190}, "9": {"src": "photos/cf71cec7b3958803.webp", "w": 1600, "h": 1600}, "10": {"src": "photos/19771ab63b5e5fd6.webp", "w": 1600, "h": 1600}, "11": {"src": "photos/f39ed31b7a0b49da.webp", "w": 1600, "h": 1600}, "12": {"src": "photos/761c20c5764b27b0.webp", "w": 1600, "h": 1600}, "13": {"src": "photos/3372a1279937423a.webp", "w": 251, "h": 246}, "16": {"src": "photos/6c98f1963f63a3fe.webp", "w": 1600, "h": 1600}, "17": {"src": "photos/050b3c52c15afd39.webp", "w": 1600, "h": 1600}, "18": {"src": "photos/49526ee20106cc90.webp", "w": 1600, "h": 1600}, "19": {"src": "photos/7f32951570f371c3.webp", "w": 1600, "h": 1600}, "20": {"src": "photos/42438ee60ed19132.webp", "w": 294, "h": 306}, "21": {"src": "photos/75e25dfa4f65c989.webp", "w": 1600, "h": 1600}, "22": {"src": "photos/368aa49e4fb7ba90.webp", "w": 1600, "h": 1600}, "23": {"src": "photos/55c8940ed35a1df4.webp", "w": 1600, "h": 1600}, "24": {"src": "photos/2076e3fcbb45b7cc.webp", "w": 1600, "h": 1600}, "25": {"src": "photos/d4ade5be9ca6fb70.webp", "w": 1600, "h": 1600}, "26": {"src": "photos/9bd523aa7479f984.webp", "w": 186, "h": 198}, "27": {"src": "photos/81376a72848d6e1b.webp", "w": 216, "h": 204}, "28": {"src": "photos/6697e2658e4acee9.webp", "w": 1600, "h": 1600}, "29": {"src": "photos/9a507edf85001a1c.webp", "w": 1600, "h": 1600}, "30": {"src": "photos/d2d0e6ebcc82d2ac.webp", "w": 1600, "h": 1600}, "31": {"src": "photos/3d9e99ab3399d0fe.webp", "w": 1600, "h": 1600}, "32": {"src": "photos/89644f066e43f3b8.webp", "w": 1600, "h": 1600}, "33": {"src": "photos/b4e2c5b887ea0316.webp", "w": 1600, "h": 1600}, "34": {"src": "photos/256f73c1b9104881.webp", "w": 1600, "h": 1600}, "35": {"src": "photos/e233cf2fff89b19a.webp", "w": 1600, "h": 1600}, "36": {"src": "photos/38eb0850d04595dd.webp", "w": 1600, "h": 1600}, "37": {"src": "photos/7bbc2f06df754067.webp", "w": 1600, "h": 1600}, "38": {"src": "photos/c0ce0684a923733a.webp", "w": 1600, "h": 1600}, "39": {"src": "photos/b97fb5cad879ab07.webp", "w": 168, "h": 164}, "40": {"src": "photos/6bd039da6625d66f.webp", "w": 244, "h": 246}, "41": {"src": "photos/7bf8dd58cd2edac9.webp", "w": 1600, "h": 1600}, "42": {"src": "photos/ba79eab59426d2b5.webp", "w": 1600, "h": 1600}}, "sheet": "https://docs.google.com/spreadsheets/d/1p-nvjuhdGkCsH3d6iX5cBMPlvP7oOMc9ateM-AL2IaI/edit?usp=sharing"}</script>
-<script src="../shared/inventory.js"></script>
+<script>
+// Rows come from the sheet's eyes tab (headings in its top row: from, image, description; see TABS in sync.py),
+// with each row's high-resolution photo in DATA.photos and its thumbnail in images.json, both keyed by row.
+const DATA = JSON.parse(document.getElementById('sheet-data').textContent);
+const col = name => (DATA.columns || []).findIndex(c => String(c).trim().toLowerCase() === name);
+const FROM = col('from'), DESC = col('description');
+const sentence = s => s.charAt(0).toUpperCase() + s.slice(1);
+// A From cell can name several places, separated by commas or semicolons.
+const places = s => [...new Set(s.split(/[,;\n]+/).map(p => p.trim().toUpperCase()).filter(Boolean))];
+const items = (DATA.rows || []).map((r, i) => {
+  const from = places(FROM >= 0 ? String(r[FROM] || '') : '');
+  const desc = sentence(DESC >= 0 ? String(r[DESC] || '').trim() : '');
+  return { i, from, desc, hay: (from.join(' ') + ' ' + desc).toLowerCase() };
+});
 
+const grid = document.getElementById('grid'), viewer = document.getElementById('viewer'), big = document.getElementById('big');
+const details = document.getElementById('details'), sub = document.getElementById('sub'), empty = document.getElementById('empty');
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; };
+const photo = it => DATA.photos?.[it.i] ? '../' + DATA.photos[it.i].src : '';
+
+for (const it of items) {
+  const li = el('li'), b = el('button', 'tile');
+  b.type = 'button';
+  it.img = el('img');
+  it.img.alt = it.desc || it.from.join(', ');
+  it.img.loading = 'lazy';
+  it.img.decoding = 'async';
+  it.img.hidden = true;  // until it has a photo
+  b.append(it.img);
+  if (it.from.length) b.append(el('span', 'from', it.from.join(' · ')));
+  if (it.desc) b.append(el('span', 'desc', it.desc));
+  b.addEventListener('click', () => {
+    const src = photo(it) || it.img.src;
+    if (src) big.src = src; else big.removeAttribute('src');
+    details.replaceChildren();
+    if (it.from.length) details.append(el('b', '', it.from.join(' · ')));
+    if (it.desc) details.append(it.desc);
+    details.hidden = !it.from.length && !it.desc;
+    viewer.showModal();
+  });
+  li.append(b);
+  grid.append(li);
+  it.li = li;
+}
+
+// From filters: each place is a toggle; with several on, an eye from any of them shows.
+const on = new Set();
+const counts = {};
+items.forEach(it => it.from.forEach(p => counts[p] = (counts[p] || 0) + 1));
+const tools = document.getElementById('tools');
+for (const p of Object.keys(counts).sort()) {
+  const b = el('button', 'filter', p);
+  b.type = 'button';
+  b.setAttribute('aria-pressed', 'false');
+  b.append(el('span', '', String(counts[p])));
+  b.addEventListener('click', () => {
+    on.has(p) ? on.delete(p) : on.add(p);
+    b.setAttribute('aria-pressed', String(on.has(p)));
+    update();
+  });
+  tools.append(b);
+}
+const q = document.getElementById('q');
+q.addEventListener('input', update);
+
+function update() {
+  const words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  let shown = 0;
+  for (const it of items) {
+    const ok = (!on.size || it.from.some(p => on.has(p))) && words.every(w => it.hay.includes(w));
+    it.li.hidden = !ok;
+    shown += ok;
+  }
+  empty.hidden = shown > 0 || !items.length;
+  sub.textContent = !items.length ? 'No eyes yet: they come from the sheet\u2019s eyes tab.'
+    : shown === items.length ? `${items.length} eye${items.length === 1 ? '' : 's'}` : `Showing ${shown} of ${items.length} eyes`;
+}
+update();
+
+// Thumbnails load as one file; any tile without one falls back to its high-resolution photo.
+fetch('images.json').then(r => r.ok ? r.json() : {}, () => ({})).then(thumbs => {
+  for (const it of items) { const src = thumbs[it.i] || photo(it); if (src) { it.img.src = src; it.img.hidden = false; } }
+});
+viewer.addEventListener('close', () => big.removeAttribute('src'));
+</script>
 </body>
 </html>
