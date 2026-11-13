@@ -23,12 +23,13 @@ def get(url):
 
 
 class SheetImages(HTMLParser):
-    """Collects {sheet row number: first image URL in that row} and {(row number, column number): first image URL in
-    that cell} (column A is 1) from the htmlview table, and the row numbers it shows (rows hidden in the sheet, e.g.
-    by a filter, are left out of the htmlview)."""
+    """Collects {sheet row number: first image URL in that row}, {(row number, column number): first image URL in
+    that cell} and {(row number, column number): text in that cell} (column A is 1) from the htmlview table, and the
+    row numbers it shows (rows hidden in the sheet, e.g. by a filter, are left out of the htmlview)."""
     def __init__(self):
         super().__init__()
-        self.images, self.cells, self.rows, self.row, self.cell, self.rownum = {}, {}, set(), False, -1, None
+        self.images, self.cells, self.texts, self.rows = {}, {}, {}, set()
+        self.row, self.cell, self.rownum = False, -1, None
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
@@ -39,11 +40,15 @@ class SheetImages(HTMLParser):
         elif tag == "img" and self.rownum and self.cell > 0 and "sheets-images-rt" in a.get("src", ""):
             self.images.setdefault(self.rownum, a["src"])
             self.cells.setdefault((self.rownum, self.cell), a["src"])
+        elif tag == "br" and self.rownum and self.cell > 0:   # a line break typed in the cell
+            self.texts[(self.rownum, self.cell)] = self.texts.get((self.rownum, self.cell), "") + "\n"
 
     def handle_data(self, data):
         if self.row and self.cell == 0 and data.strip().isdigit() and self.rownum is None:
             self.rownum = int(data.strip())
             self.rows.add(self.rownum)
+        elif self.row and self.cell > 0 and self.rownum:
+            self.texts[(self.rownum, self.cell)] = self.texts.get((self.rownum, self.cell), "") + data
 
 
 def webp_bytes(im, quality):
@@ -88,10 +93,12 @@ TABS = [
     ("0", "flower-inventory/index.html", "flower-inventory/images.json"),          # flowers
     ("1990863409", "juju-inventory/index.html", "juju-inventory/images.json"),     # jujus
 ]
-# Tabs that hold only photos, no headings or text: read along each row from A1 to the first empty cell, row by row
-# down to the first row with nothing in column A. Same (gid, page, thumbnails file) layout as TABS.
+# Tabs that hold photos, no headings: read along each row from A1 to the first empty cell, row by row down to the
+# first row with nothing in column A. A row of text right under a row of photos holds their details, each in the cell
+# under its photo, shown when the photo is opened. Same (gid, page, thumbnails file) layout as TABS.
 PHOTO_TABS = [
     ("449685886", "murakami/index.html", "murakami/images.json"),                  # murakami
+    ("589726417", "eyes/index.html", "eyes/images.json"),                          # eyes
 ]
 
 
@@ -137,23 +144,30 @@ def download(gid, urls, out_dir):
 
 
 def read_photo_tab(gid, out_dir):
-    """Returns (thumbnails, photos) for a PHOTO_TABS tab, keyed by reading order (as a string)."""
+    """Returns (thumbnails, photos, details) for a PHOTO_TABS tab, each keyed by reading order (as a string);
+    details only has photos with text under them."""
     html_view, _ = get(SHEET + f"/htmlview/sheet?headers=true&gid={gid}")
     parser = SheetImages()
     parser.feed(html_view.decode("utf-8", "replace"))
-    urls, row = [], 1
+    urls, details, row = [], {}, 1
     while (row, 1) in parser.cells:
-        col = 1
+        first, col = len(urls), 1
         while (row, col) in parser.cells:
             urls.append(parser.cells[(row, col)])
             col += 1
         row += 1
-    if not urls:
-        sys.exit(f"Tab {gid} has no photo in A1 (sheet no longer shared by link, or tab deleted). Nothing published.")
+        texts = [parser.texts.get((row, c), "").strip() for c in range(1, col)]
+        if (row, 1) not in parser.cells and any(texts):   # the photos' details row
+            for i, text in enumerate(texts):
+                if text:
+                    details[str(first + i)] = "\n".join(line.strip() for line in text.splitlines() if line.strip())
+            row += 1
+    if not parser.rows:  # an empty tab still shows its rows; no table means the tab couldn't be opened
+        sys.exit(f"Tab {gid} could not be read (sheet no longer shared by link, or tab deleted). Nothing published.")
     if row not in parser.rows and any(n > row for n in parser.images):
         sys.exit(f"Tab {gid}: row {row} is hidden in the sheet (a filter is on, or rows are hidden), so the photos "
                  f"after it can't be read. Turn the filter off or unhide it. Nothing published.")
-    return download(gid, {str(k): u for k, u in enumerate(urls)}, out_dir)
+    return (*download(gid, {str(k): u for k, u in enumerate(urls)}, out_dir), details)
 
 
 def added_dates(old, cols, rows, today, old_photos=None, new_photos=None):
@@ -219,7 +233,8 @@ def main(out_dir="."):
     photo_tabs = [(page, thumbs, *read_photo_tab(gid, out_dir)) for gid, page, thumbs in PHOTO_TABS]
 
     # Drop high-resolution files no longer used by any row of any tab.
-    keep = {os.path.basename(p["src"]) for *_, photos in tabs + photo_tabs for p in photos.values()}
+    keep = {os.path.basename(p["src"]) for photos in [t[-1] for t in tabs] + [t[3] for t in photo_tabs]
+            for p in photos.values()}
     for f in os.listdir(os.path.join(out_dir, PHOTO_DIR)):
         if f not in keep:
             os.remove(os.path.join(out_dir, PHOTO_DIR, f))
@@ -258,11 +273,13 @@ def main(out_dir="."):
         }
         blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
         pages[page] = re.sub(pattern, lambda m: m.group(1) + blob + m.group(3), html, count=1, flags=re.S)
-    for page, thumbs, images, photos in photo_tabs:
+    for page, thumbs, images, photos, details in photo_tabs:
         html = open(page, encoding="utf-8").read()
         if not re.search(pattern, html, re.S):
             sys.exit(f"{page} has no sheet-data block. Nothing published.")
         data = {"synced": synced, "photos": photos, "sheet": SHEET + "/edit?usp=sharing"}
+        if details:
+            data["details"] = details
         blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
         pages[page] = re.sub(pattern, lambda m: m.group(1) + blob + m.group(3), html, count=1, flags=re.S)
 
@@ -270,10 +287,10 @@ def main(out_dir="."):
         open(os.path.join(out_dir, page), "w", encoding="utf-8").write(pages[page])
         json.dump(images, open(os.path.join(out_dir, thumbs), "w"), separators=(",", ":"))
         print(f"{page}: {len(cols)} columns, {len(rows)} rows, {len(images)} photos")
-    for page, thumbs, images, photos in photo_tabs:
+    for page, thumbs, images, photos, details in photo_tabs:
         open(os.path.join(out_dir, page), "w", encoding="utf-8").write(pages[page])
         json.dump(images, open(os.path.join(out_dir, thumbs), "w"), separators=(",", ":"))
-        print(f"{page}: {len(images)} photos")
+        print(f"{page}: {len(images)} photos" + (f", {len(details)} with details" if details else ""))
 
 
 if __name__ == "__main__":
