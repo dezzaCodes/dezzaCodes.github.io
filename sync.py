@@ -92,13 +92,13 @@ def _photo(url, out_dir):
 TABS = [
     ("0", "flower-inventory/index.html", "flower-inventory/images.json"),          # flowers
     ("1990863409", "juju-inventory/index.html", "juju-inventory/images.json"),     # jujus
+    ("589726417", "eyes/index.html", "eyes/images.json"),                          # eyes
 ]
 # Tabs that hold photos, no headings: read along each row from A1 to the first empty cell, row by row down to the
 # first row with nothing in column A. A row of text right under a row of photos holds their details, each in the cell
 # under its photo, shown when the photo is opened. Same (gid, page, thumbnails file) layout as TABS.
 PHOTO_TABS = [
     ("449685886", "murakami/index.html", "murakami/images.json"),                  # murakami
-    ("589726417", "eyes/index.html", "eyes/images.json"),                          # eyes
 ]
 
 
@@ -110,6 +110,9 @@ def read_tab(gid, out_dir):
     if "csv" not in ctype or text.lstrip().startswith("<"):
         sys.exit(f"Tab {gid} did not return CSV (sheet no longer shared by link, or tab deleted). Nothing published.")
     allrows = list(csv.reader(io.StringIO(text)))
+    # Drop trailing columns with no heading and nothing in them.
+    width = max((i + 1 for r in allrows for i, c in enumerate(r) if c.strip()), default=0)
+    allrows = [r[:width] for r in allrows]
     cols = allrows[0]
     # CSV row index i corresponds to sheet row i + 1; keep that link while dropping blank rows.
     kept = [(i + 1, r) for i, r in enumerate(allrows[1:], start=1) if any(c.strip() for c in r)]
