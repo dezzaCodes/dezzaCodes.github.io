@@ -359,7 +359,8 @@ const cell = (m, v, first) => {
 
 const tbody = document.getElementById('tbody');
 // Tile pages (CFG.tiles: { top, bottom } column names) show square photo tiles instead of the table, with the top
-// column in a bar across the top of the photo and the bottom column (usually the name) across the bottom.
+// column in a bar across the top of the photo and the bottom column as a subtitle across the bottom. When the name
+// column is on top, its bracketed variety ("Chrysanthemum (one ply)") leads the subtitle.
 const TILES = CFG.tiles && HAS_IMG ? { top: colIdx(cfgName(CFG.tiles.top)), bottom: colIdx(cfgName(CFG.tiles.bottom)) } : null;
 const tileGrid = TILES ? h('ul', { class: 'tile-grid' }) : null;
 if (TILES) {
@@ -372,12 +373,22 @@ const tileImg = r => {
   const src = IMGS[r.i] || PHOTOS[r.i]?.src;
   return src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : null;
 };
+const tileText = r => {
+  let top = '';
+  const bottom = [];
+  if (TILES.top >= 0 && r.v[TILES.top]) {
+    if (TILES.top === 0) { const [name, variety] = splitName(r.v[0]); top = name; if (variety) bottom.push(variety); }
+    else top = r.v[TILES.top].split('\n')[0];
+  }
+  if (TILES.bottom >= 0 && r.v[TILES.bottom]) bottom.push(TILES.bottom === 0 ? splitName(r.v[0])[0] : r.v[TILES.bottom].split('\n').join(' · '));
+  return [top, bottom.join(' · ')];
+};
 const renderTiles = () => tileGrid.replaceChildren(...state.view.map((r, idx) => h('li', {},
   h('button', { class: 'tile' + (r.sold ? ' sold' : ''), type: 'button', 'aria-label': r.v[TILES.bottom] || r.v[0] || 'Untitled',
-    onclick: () => openDetail(idx), onpointerdown: () => preload(r), onfocus: () => preload(r) },
+    onclick: () => openDetail(idx), onpointerdown: () => preload(r), onfocus: () => preload(r), title: tileText(r).filter(Boolean).join(' — ') },
     tileImg(r),
-    TILES.top >= 0 && r.v[TILES.top] ? h('span', { class: 'tile-top' }, r.v[TILES.top].split('\n')[0]) : null,
-    h('span', { class: 'tile-bottom' }, TILES.bottom >= 0 && r.v[TILES.bottom] ? splitName(r.v[TILES.bottom])[0] : '', soldPill(r))))));
+    ...(([top, bottom]) => [top ? h('span', { class: 'tile-top' }, top) : null,
+      bottom || soldPill(r) ? h('span', { class: 'tile-bottom' }, bottom, soldPill(r)) : null])(tileText(r))))));
 const renderBody = () => {
   if (TILES) {
     renderTiles();
@@ -406,30 +417,10 @@ showFiltersBtn.onclick = () => { filtersEl.classList.add('open'); renderBar(); }
 sortSel.onchange = () => { const [c, dir] = sortSel.value.split(':').map(Number); state.sort = { c, dir }; update(); };
 const filtersEl = document.getElementById('filters');
 const nActive = () => [...state.sel.values()].reduce((a, s) => a + s.size, 0);
-// ---------- total, converted to Australian dollars at the latest exchange rate ----------
+// ---------- total ----------
+// The prices of the items showing, added up per currency (all AUD in practice: "$1,463 AUD").
 const PRICE = META.find(m => m.kind === 'money');
-const HOME = 'AUD';
-let FX = null; // null while loading, false if no rate service answered, else { rates, date, source }
-async function loadFx() {
-  const want = [...new Set(ROWS.filter(r => PRICE && r.v[PRICE.c]).map(r => money(r.v[PRICE.c])[0]))].filter(c => c !== HOME);
-  const sources = [
-    async () => {
-      const j = await (await fetch(`https://api.frankfurter.dev/v1/latest?base=${HOME}&symbols=${want.join(',')}`)).json();
-      return { rates: j.rates, date: j.date, source: 'European Central Bank' };
-    },
-    async () => {
-      const j = await (await fetch(`https://open.er-api.com/v6/latest/${HOME}`)).json();
-      return { rates: j.rates, date: new Date(j.time_last_update_unix * 1000).toISOString().slice(0, 10), source: 'ExchangeRate-API' };
-    },
-  ];
-  FX = false;
-  if (!want.length) FX = { rates: {}, date: null, source: '' };
-  else for (const src of sources) {
-    try { const fx = await src(); if (want.every(c => fx.rates && fx.rates[c] > 0)) { FX = fx; break; } } catch {}
-  }
-  renderBar();
-}
-const fmtHome = n => '$' + Math.round(n).toLocaleString('en-AU');
+const fmtMoney = (n, cur) => (cur === 'AUD' ? '$' : '') + n.toLocaleString('en-AU', { maximumFractionDigits: 2 }) + ' ' + cur;
 const totalEl = () => {
   if (!PRICE) return null;
   const by = new Map(); let unpriced = 0;
@@ -439,16 +430,8 @@ const totalEl = () => {
     const [cur, n] = money(v);
     by.set(cur, (by.get(cur) || 0) + n);
   });
-  const parts = [...by].map(([cur, n]) => `${n.toLocaleString('en-AU', { maximumFractionDigits: 2 })} ${cur}`);
-  const note = unpriced ? `${unpriced} without a price` : '';
-  if (FX === null) return h('span', { class: 'total' }, 'Total ', h('small', {}, 'loading exchange rates…'));
-  if (!FX) return h('span', { class: 'total', title: note }, 'Total ', h('b', {}, parts.join(' + ') || '0'),
-    h('small', {}, 'exchange rates unavailable right now'));
-  const sum = [...by].reduce((a, [cur, n]) => a + (cur === HOME ? n : n / FX.rates[cur]), 0);
-  const rates = [...by.keys()].filter(c => c !== HOME).map(c => `1 ${c} = ${(1 / FX.rates[c]).toFixed(3)} ${HOME}`).join(', ');
-  // The breakdown by currency, the exchange rates and any unpriced items are in the tooltip.
-  return h('span', { class: 'total', title: [parts.join(' + '), rates && `${rates} (${FX.source}, ${FX.date})`, note].filter(Boolean).join('\n') },
-    'Total ', h('b', {}, `${fmtHome(sum)} ${HOME}`));
+  return h('span', { class: 'total', title: unpriced ? `${unpriced} without a price` : null },
+    'Total ', h('b', {}, [...by].map(([cur, n]) => fmtMoney(n, cur)).join(' + ') || '0'));
 };
 
 // Columns left out of the Sort by menu.
@@ -594,6 +577,4 @@ toTop.addEventListener('click', () => {
 });
 
 update(false);
-// After the back-to-top setup above: with nothing to convert, loadFx redraws the bar straight away.
-loadFx();
 })();

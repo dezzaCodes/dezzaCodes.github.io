@@ -25,9 +25,9 @@
 /* From along the top of each tile, the description along the bottom. */
 .tile .from,.tile .desc{position:absolute;left:0;right:0;padding:6px 8px;color:#fff;font:600 12px/1.25 var(--body);text-align:left;text-shadow:0 1px 2px rgba(0,0,0,.5);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .tile .from{top:0;background:linear-gradient(rgba(0,0,0,.55),transparent);letter-spacing:.04em}
-/* The description reads like a film subtitle: centred white text with a dark outline, no bar. */
-.tile .desc{bottom:4px;text-align:center;background:none;font-weight:600;text-shadow:0 0 3px #000,0 0 2px #000,0 1px 2px #000,0 0 8px rgba(0,0,0,.6);-webkit-text-stroke:0}
-@media (min-width:640px){.tile .from,.tile .desc{font-size:14px;padding:8px 10px}}
+/* The description is a subtitle: smaller, grey and italic, on the right. */
+.tile .desc{bottom:0;text-align:right;font:italic 400 11.5px/1.3 var(--body);color:rgba(255,255,255,.82);background:linear-gradient(transparent,rgba(0,0,0,.5));padding-top:14px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+@media (min-width:640px){.tile .from,.tile .desc{font-size:14px;padding:8px 10px}.tile .desc{font-size:13px;padding-top:16px}}
 .empty{color:var(--muted);padding:24px 0}
 /* Full-screen photo, with what's in it underneath. */
 dialog{border:0;padding:0;max-width:100vw;max-height:100vh;width:100vw;height:100vh;background:rgba(10,12,10,.92)}
