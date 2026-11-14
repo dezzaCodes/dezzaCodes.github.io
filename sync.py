@@ -100,6 +100,84 @@ TABS = [
 PHOTO_TABS = [
     ("449685886", "murakami/index.html", "murakami/images.json"),                  # murakami
 ]
+# Pages whose photos are leather flowers named by the colour of their petals (see petal_colours).
+PETAL_COLOUR_PAGES = {"eyes/index.html"}
+# Petal colours as they come out in the eyes photos (median RGB of the leather), each with its name and the group it
+# filters under. A photo takes the name of the nearest one; add a reference here when a new colour comes up.
+PETAL_COLOURS = [
+    ("Red", "Red", [(120, 22, 20), (123, 26, 15)]),
+    ("Burgundy", "Red", [(56, 10, 11)]),
+    ("Rust", "Orange", [(138, 43, 18)]),
+    ("Burnt orange", "Orange", [(140, 73, 15)]),
+    ("Mustard", "Yellow", [(175, 147, 27), (170, 143, 21), (161, 135, 16)]),
+    ("Butter yellow", "Yellow", [(232, 204, 99)]),
+    ("Forest green", "Green", [(35, 72, 28), (35, 76, 26), (31, 66, 15)]),
+    ("Bottle green", "Green", [(22, 44, 32)]),
+    ("Emerald", "Green", [(27, 69, 51)]),
+    ("Olive", "Green", [(114, 118, 59)]),
+    ("Sage", "Green", [(99, 126, 118)]),
+    ("Navy", "Blue", [(6, 20, 69), (30, 35, 75)]),
+    ("Dusty blue", "Blue", [(92, 107, 107), (93, 108, 108)]),
+    ("Powder blue", "Blue", [(101, 128, 139)]),
+    ("Raspberry", "Pink", [(129, 30, 61), (121, 24, 58)]),
+    ("Dusty rose", "Pink", [(136, 70, 85)]),
+    ("Blush", "Pink", [(160, 120, 115), (156, 115, 105)]),
+    ("Pink", "Pink", [(204, 134, 155)]),
+    ("Lilac", "Purple", [(135, 123, 142)]),
+    ("Plum", "Purple", [(84, 34, 63)]),
+    ("White", "White", [(180, 178, 164), (187, 186, 174), (178, 177, 168), (191, 192, 183), (169, 170, 160)]),
+    ("Black", "Black", [(21, 21, 23), (12, 14, 15)]),
+    ("Dark brown", "Brown", [(36, 28, 19), (42, 29, 22)]),
+    ("Brown", "Brown", [(72, 58, 36)]),
+    ("Taupe", "Brown", [(110, 95, 63)]),
+    ("Grey", "Grey", [(128, 128, 124)]),
+    ("Charcoal", "Grey", [(62, 62, 62)]),
+]
+COLOUR_GROUPS = ["Red", "Orange", "Yellow", "Green", "Blue", "Purple", "Pink", "White", "Black", "Brown", "Grey"]
+
+
+def lab(rgb):
+    """CIE Lab of sRGB colours (an array of shape (..., 3), 0-255), so distances match how different colours look."""
+    import numpy as np
+    c = np.asarray(rgb, float) / 255
+    c = np.where(c > 0.04045, ((c + 0.055) / 1.055) ** 2.4, c / 12.92)
+    xyz = c @ np.array([[0.4124, 0.2126, 0.0193], [0.3576, 0.7152, 0.1192], [0.1805, 0.0722, 0.9505]])
+    xyz /= [0.9505, 1.0, 1.089]
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16 / 116)
+    return np.stack([116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])], -1)
+
+
+def petal_colour(path):
+    """(name, group) of a leather flower photo: the median colour of a ring between the button in the middle and the
+    petal tips (the photos are squares centred on the flower), named after the nearest PETAL_COLOURS reference."""
+    import numpy as np
+    from PIL import Image
+    im = Image.open(path).convert("RGB")
+    s = min(im.size)
+    im = im.crop(((im.width - s) // 2, (im.height - s) // 2, (im.width + s) // 2, (im.height + s) // 2)).resize((400, 400))
+    yy, xx = np.mgrid[:400, :400]
+    r = np.hypot(xx - 200, yy - 200) / 400
+    petal = lab(np.median(np.asarray(im, float)[(r > 0.15) & (r < 0.27)], 0))
+    name, group, _ = min(((n, g, np.linalg.norm(lab(ref) - petal, axis=-1).min()) for n, g, ref in PETAL_COLOURS),
+                         key=lambda t: t[2])
+    return name, group
+
+
+def petal_colours(cols, rows, photos, out_dir):
+    """{row: [colour name, group]} for a PETAL_COLOUR_PAGES tab. A colour typed in the tab's colour column wins;
+    its group is a group named in it, else the group of a PETAL_COLOURS name in it, else the photo's group."""
+    c = next((i for i, n in enumerate(cols) if n.strip().lower() in ("colour", "color")), -1)
+    out = {}
+    for k, p in photos.items():
+        name, group = petal_colour(os.path.join(out_dir, p["src"]))
+        typed = rows[int(k)][c].strip() if c >= 0 else ""
+        if typed:
+            low = typed.lower()
+            group = (next((g for g in COLOUR_GROUPS if re.search(rf"\b{g.lower()}\b", low)), None)
+                     or next((g for n, g, _ in sorted(PETAL_COLOURS, key=lambda t: -len(t[0])) if n.lower() in low), group))
+            name = typed[0].upper() + typed[1:]
+        out[k] = [name, group]
+    return out
 
 
 def read_tab(gid, out_dir):
@@ -274,6 +352,9 @@ def main(out_dir="."):
             "photos": photos,
             "sheet": SHEET + "/edit?usp=sharing",
         }
+        if page in PETAL_COLOUR_PAGES:
+            data["colours"] = petal_colours(cols, rows, photos, out_dir)
+            data["colourGroups"] = COLOUR_GROUPS
         blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
         pages[page] = re.sub(pattern, lambda m: m.group(1) + blob + m.group(3), html, count=1, flags=re.S)
     for page, thumbs, images, photos, details in photo_tabs:

@@ -61,7 +61,12 @@ dialog button{all:unset;position:fixed;inset:0;cursor:zoom-out}
 .filter[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
 .filter[aria-pressed="true"] span{color:inherit;opacity:.8}
 .empty{color:var(--muted);padding:24px 0}
-@media (max-width:639px){.tools input{flex-basis:100%;max-width:none}}
+.filter .dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 6px 0 0;vertical-align:-1px;box-shadow:0 0 0 1px var(--line)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+@media (max-width:639px){.tools input{flex-basis:100%;max-width:none}
+  .filters{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px 14px;padding:0 16px;scrollbar-width:none}
+  .filters .filter{flex:none}}
+.details .colour{display:block;font-size:15px;opacity:.75;margin-top:4px}
 /* From along the top of each tile, the description along the bottom. */
 .tile{position:relative}
 .tile .from,.tile .desc{position:absolute;left:0;right:0;padding:6px 8px;color:#fff;font:600 12px/1.25 var(--body);text-align:left;text-shadow:0 1px 2px rgba(0,0,0,.5);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
@@ -86,6 +91,7 @@ dialog button{all:unset;position:fixed;inset:0;cursor:zoom-out}
   <div class="tools" id="tools">
     <input id="q" type="search" placeholder="Search…" aria-label="Search" autocomplete="off">
   </div>
+  <div class="filters" id="colourFilters" aria-label="Colour"></div>
   <ul class="grid" id="grid"></ul>
   <p class="empty" id="empty" hidden>No eyes match.</p>
 </div>
@@ -107,7 +113,9 @@ const places = s => [...new Set(s.split(/[,;\n]+/).map(p => p.trim()).filter(Boo
 const items = (DATA.rows || []).map((r, i) => {
   const from = places(FROM >= 0 ? String(r[FROM] || '') : '');
   const desc = sentence(DESC >= 0 ? String(r[DESC] || '').trim() : '');
-  return { i, from, desc, hay: (from.join(' ') + ' ' + desc).toLowerCase() };
+  // The petal colour: [name, group], measured from the photo by the sync unless typed in the colour column.
+  const [colour, group] = DATA.colours?.[i] || ['', ''];
+  return { i, from, desc, colour, group, hay: [...from, desc, colour, group].join(' ').toLowerCase() };
 });
 
 const grid = document.getElementById('grid'), viewer = document.getElementById('viewer'), big = document.getElementById('big');
@@ -132,7 +140,8 @@ for (const it of items) {
     details.replaceChildren();
     if (it.from.length) details.append(el('b', '', it.from.join(' · ')));
     if (it.desc) details.append(it.desc);
-    details.hidden = !it.from.length && !it.desc;
+    if (it.colour) details.append(el('span', 'colour', it.colour));
+    details.hidden = !it.from.length && !it.desc && !it.colour;
     viewer.showModal();
   });
   li.append(b);
@@ -140,23 +149,32 @@ for (const it of items) {
   it.li = li;
 }
 
-// From filters: each place is a toggle; with several on, an eye from any of them shows.
-const on = new Set();
-const counts = {};
-items.forEach(it => it.from.forEach(p => counts[p] = (counts[p] || 0) + 1));
-const tools = document.getElementById('tools');
-for (const p of Object.keys(counts).sort()) {
-  const b = el('button', 'filter', p);
-  b.type = 'button';
-  b.setAttribute('aria-pressed', 'false');
-  b.append(el('span', '', String(counts[p])));
-  b.addEventListener('click', () => {
-    on.has(p) ? on.delete(p) : on.add(p);
-    b.setAttribute('aria-pressed', String(on.has(p)));
-    update();
-  });
-  tools.append(b);
+// Filters: each value is a toggle. Within a row, an eye matching any value that's on shows; across the From and
+// colour rows, it has to match both.
+const SWATCH = { Red: '#C0262B', Orange: '#D9731E', Yellow: '#E8C230', Green: '#3E8A48', Blue: '#3D6FC4', Purple: '#8457B8',
+  Pink: '#E681AA', White: '#FFFFFF', Black: '#222222', Brown: '#7B5535', Grey: '#9A9A9A' };
+function toggles(box, values, of, dots) {
+  const on = new Set(), counts = {};
+  items.forEach(it => of(it).forEach(v => counts[v] = (counts[v] || 0) + 1));
+  for (const v of values.filter(v => counts[v])) {
+    const b = el('button', 'filter');
+    b.type = 'button';
+    b.setAttribute('aria-pressed', 'false');
+    if (dots) { const d = el('span', 'dot'); d.style.background = SWATCH[v] || '#ccc'; b.append(d); }
+    b.append(v, el('span', '', String(counts[v])));
+    b.addEventListener('click', () => {
+      on.has(v) ? on.delete(v) : on.add(v);
+      b.setAttribute('aria-pressed', String(on.has(v)));
+      update();
+    });
+    box.append(b);
+  }
+  return it => !on.size || of(it).some(v => on.has(v));
 }
+const allFrom = [...new Set(items.flatMap(it => it.from))].sort();
+const fromOk = toggles(document.getElementById('tools'), allFrom, it => it.from);
+const groups = DATA.colourGroups || [...new Set(items.map(it => it.group).filter(Boolean))];
+const colourOk = toggles(document.getElementById('colourFilters'), groups, it => it.group ? [it.group] : [], true);
 const q = document.getElementById('q');
 q.addEventListener('input', update);
 
@@ -164,7 +182,7 @@ function update() {
   const words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   let shown = 0;
   for (const it of items) {
-    const ok = (!on.size || it.from.some(p => on.has(p))) && words.every(w => it.hay.includes(w));
+    const ok = fromOk(it) && colourOk(it) && words.every(w => it.hay.includes(w));
     it.li.hidden = !ok;
     shown += ok;
   }
