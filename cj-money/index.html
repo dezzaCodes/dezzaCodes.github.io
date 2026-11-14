@@ -50,17 +50,24 @@ a{color:var(--accent)}
 input:focus-visible,button:focus-visible,tr:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 
-/* One panel: the profit or loss (largest), income and expenses, and the business toggles they're totalled over. */
-.money{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 14px 6px 6px;margin-bottom:24px}
-.tiles{display:grid;grid-template-columns:minmax(0,1.4fr) repeat(2,minmax(0,1fr));gap:6px;align-items:center}
-.tile{padding:8px 14px;border-radius:8px;min-width:0}
-.tile .v{display:block;font:500 clamp(17px,2.4vw,21px)/1.2 var(--mono);font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap}
-.tile.result .v{font-size:clamp(24px,3.6vw,32px)}
-.tile.result.profit{background:var(--moss-soft)}
-.tile.result.profit .v,.tile.result.profit .eyebrow{color:var(--moss)}
-.tile.result.loss{background:var(--loss-soft)}
-.tile.result.loss .v,.tile.result.loss .eyebrow{color:var(--loss)}
-.toggles{display:flex;gap:8px}
+/* The summary card: profit or loss on the left, income and expenses as two rows with bars on the right. */
+.money{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:24px}
+.result{display:flex;flex-direction:column;justify-content:center;gap:2px;padding:18px 22px;min-width:0}
+.result .v{font:500 clamp(28px,4.2vw,40px)/1.1 var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.result .note{font-size:13px;color:var(--muted);margin-top:4px}
+.result.profit{background:var(--moss-soft)}
+.result.profit .v,.result.profit .eyebrow{color:var(--moss)}
+.result.loss{background:var(--loss-soft)}
+.result.loss .v,.result.loss .eyebrow{color:var(--loss)}
+.flows{display:grid;align-content:center;gap:14px;padding:16px 22px;min-width:0}
+.flow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:6px 12px}
+.flow .v{font:500 18px/1.2 var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.flow .bar{grid-column:1/-1;height:6px;border-radius:99px;background:var(--sunk);overflow:hidden}
+.flow .bar i{display:block;height:100%;border-radius:inherit;min-width:2px}
+.flow.income .bar i{background:var(--moss)}
+.flow.expense .bar i{background:var(--loss)}
+/* The businesses the card and lists include, above the card. */
+.toggles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .tog{display:inline-flex;align-items:center;gap:6px;font:500 14px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--muted);padding:5px 14px 5px 10px;border-radius:99px;cursor:pointer}
 .tog::before{content:"";width:14px;height:14px;border-radius:4px;border:1.5px solid currentColor;box-sizing:border-box}
 .tog:hover{color:var(--ink)}
@@ -128,13 +135,10 @@ tr.editing .actions .del{margin-right:auto;color:var(--loss)}
 }
 @media (max-width:520px){
   .wrap{padding-block:18px 32px}
-  /* Profit or loss beside the toggles (stacked), income and expenses below. */
-  .money{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:4px 10px;padding:6px 10px 6px 6px;margin-bottom:14px}
-  .tiles{display:contents}
-  .tile{padding:6px 10px}
-  .tile.result{grid-column:1/3;grid-row:1}
-  .toggles{grid-column:3;grid-row:1;flex-direction:column;gap:6px}
-  .tile:nth-child(3){grid-column:2/4}
+  /* Phones: profit on top, income and expenses below it. */
+  .money{grid-template-columns:minmax(0,1fr);margin-bottom:16px}
+  .result{padding:14px 16px}
+  .flows{padding:14px 16px;gap:12px}
   /* Phones: date, amount, business and Add share one line. */
   form.entry{gap:5px}
   form.entry .field{padding-inline:6px}
@@ -177,10 +181,8 @@ tr.editing .actions .del{margin-right:auto;color:var(--loss)}
   </section>
 
   <div id="app" hidden>
-    <div class="money">
-      <div class="tiles" id="tiles"></div>
-      <div class="toggles" id="toggles" role="group" aria-label="Businesses to include"></div>
-    </div>
+    <div class="toggles" id="toggles" role="group" aria-label="Businesses to include"></div>
+    <div class="money" id="tiles"></div>
     <div class="ledger-tabs" id="ledgerTabs" role="tablist" aria-label="List"></div>
     <div class="cols" id="cols">
       <section class="ledger" id="income"></section>
@@ -313,12 +315,18 @@ function render() {
   const all = current(), d = { entries: all.entries.filter(e => shown.has(e.category)) };
   const t = totals(d), net = t.income - t.expense;
   document.getElementById('toggles').replaceChildren(...Object.entries(CATS).map(([k, name]) =>
-    h('button', { class: 'tog ' + k, type: 'button', 'aria-pressed': String(shown.has(k)), 'aria-label': CAT_NAMES[k], title: CAT_NAMES[k], onclick: () => toggleCat(k) }, name)));
+    h('button', { class: 'tog ' + k, type: 'button', 'aria-pressed': String(shown.has(k)), title: `Include ${CAT_NAMES[k]}`, onclick: () => toggleCat(k) }, name, ' ', CAT_NAMES[k])));
+  // Each bar is its total against the larger of the two.
+  const most = Math.max(t.income, t.expense, 1);
+  const flow = (type, label) => h('div', { class: 'flow ' + type },
+    h('span', { class: 'eyebrow' }, label), h('span', { class: 'v' }, fmt(t[type])),
+    h('span', { class: 'bar', 'aria-hidden': 'true' }, h('i', { style: `width:${(t[type] / most * 100).toFixed(1)}%` })));
+  const note = net >= 0 ? (t.income ? `${Math.round(net / t.income * 100)}% margin` : '') : `${fmt(-net)} more spent than earned`;
   document.getElementById('tiles').replaceChildren(
-    h('div', { class: 'tile result ' + (net >= 0 ? 'profit' : 'loss') },
-      h('span', { class: 'eyebrow' }, net >= 0 ? 'Profit' : 'Loss'), h('span', { class: 'v' }, fmt(net))),
-    h('div', { class: 'tile' }, h('span', { class: 'eyebrow' }, 'Income'), h('span', { class: 'v' }, fmt(t.income))),
-    h('div', { class: 'tile' }, h('span', { class: 'eyebrow' }, 'Expenses'), h('span', { class: 'v' }, fmt(t.expense))),
+    h('div', { class: 'result ' + (net >= 0 ? 'profit' : 'loss') },
+      h('span', { class: 'eyebrow' }, net >= 0 ? 'Profit' : 'Loss'), h('span', { class: 'v' }, fmt(net)),
+      note ? h('span', { class: 'note' }, note) : null),
+    h('div', { class: 'flows' }, flow('income', 'Income'), flow('expense', 'Expenses')),
   );
   for (const type of ['income', 'expense']) renderLedger(d, type, t[type]);
   document.getElementById('cols').dataset.show = ledgerShown;
