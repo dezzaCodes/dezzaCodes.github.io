@@ -447,7 +447,7 @@ const totalEl = () => {
     by.set(cur, (by.get(cur) || 0) + n);
   });
   return h('span', { class: 'total', title: unpriced ? `${unpriced} without a price` : null },
-    'Total ', h('b', {}, [...by].map(([cur, n]) => fmtMoney(n, cur)).join(' + ') || '0'));
+    'Total ', h('b', {}, [...by].map(([cur, n]) => fmtMoney(n, cur)).join(' + ') || fmtMoney(0, 'AUD')));
 };
 
 // Columns left out of the Sort by menu.
