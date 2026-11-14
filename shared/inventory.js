@@ -569,14 +569,20 @@ function openDetail(idx) {
   lockPage(true);
   scrim.hidden = false;
   if (opening) scrim.scrollTop = 0;
+  syncCovered();
   close.focus({ preventScroll: true });
 }
 function closeDetail() {
   scrim.hidden = true; cur = -1;
+  scrim.classList.remove('covered');
   lockPage(false);
   if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
 }
 scrim.addEventListener('click', e => { if (e.target === scrim) closeDetail(); });
+// Phones: while the sheet covers the top of the screen there's no dimmed strip to show, so the layer behind it is
+// made opaque; bouncing past the end of the sheet then shows sheet background, not the page beneath.
+const syncCovered = () => scrim.classList.toggle('covered', !scrim.hidden && sheet.getBoundingClientRect().top <= 0);
+scrim.addEventListener('scroll', syncCovered, { passive: true });
 // Phones: with the sheet at its starting position, pulling it down moves it with the finger; a quick flick down
 // (or a long pull) sends it away, anything less springs back.
 const asBottomSheet = window.matchMedia('(max-width:860px)');
