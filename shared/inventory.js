@@ -379,6 +379,9 @@ const tileImg = r => {
   const src = IMGS[r.i] || PHOTOS[r.i]?.src;
   return src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : null;
 };
+// A tile's [top text, subtitle text, chip column value]: a bottom column shown as chips elsewhere (chipCols, e.g.
+// the juju series) is a chip here too, after any subtitle text.
+const BOTTOM_CHIP = TILES && chipColour.has(TILES.bottom);
 const tileText = r => {
   let top = '';
   const bottom = [];
@@ -386,15 +389,22 @@ const tileText = r => {
     if (TILES.top === 0) { const [name, variety] = splitName(r.v[0]); top = name; if (variety) bottom.push(variety); }
     else top = r.v[TILES.top].split('\n')[0];
   }
-  if (TILES.bottom >= 0 && r.v[TILES.bottom]) bottom.push(TILES.bottom === 0 ? splitName(r.v[0])[0] : r.v[TILES.bottom].split('\n').join(' · '));
-  return [top, bottom.join(' · ')];
+  const b = TILES.bottom >= 0 ? r.v[TILES.bottom] : '';
+  if (b && !BOTTOM_CHIP) bottom.push(TILES.bottom === 0 ? splitName(b)[0] : b.split('\n').join(' · '));
+  return [top, bottom.join(' · '), BOTTOM_CHIP ? b : ''];
 };
-const renderTiles = () => tileGrid.replaceChildren(...state.view.map((r, idx) => h('li', {},
-  h('button', { class: 'tile' + (r.sold ? ' sold' : ''), type: 'button', 'aria-label': r.v[TILES.bottom] || r.v[0] || 'Untitled',
-    onclick: () => openDetail(idx), onpointerdown: () => preload(r), onfocus: () => preload(r), title: tileText(r).filter(Boolean).join(' — ') },
-    tileImg(r),
-    ...(([top, bottom]) => [top ? h('span', { class: 'tile-top' }, top) : null,
-      bottom || soldPill(r) ? h('span', { class: 'tile-bottom' }, bottom, soldPill(r)) : null])(tileText(r))))));
+const renderTiles = () => tileGrid.replaceChildren(...state.view.map((r, idx) => {
+  const [top, sub, chipVal] = tileText(r);
+  // Sold and ISO labels stay off the tiles (they're in the detail panel).
+  const bottom = [sub || null, chipVal ? chips(META[TILES.bottom], chipVal) : null].filter(Boolean);
+  return h('li', {},
+    h('button', { class: 'tile' + (r.sold ? ' sold' : ''), type: 'button', 'aria-label': (r.v[0] && splitName(r.v[0])[0]) || 'Untitled',
+      onclick: () => openDetail(idx), onpointerdown: () => preload(r), onfocus: () => preload(r),
+      title: [top, sub, chipVal].filter(Boolean).join(' — ') },
+      tileImg(r),
+      top ? h('span', { class: 'tile-top' }, top) : null,
+      bottom.length ? h('span', { class: 'tile-bottom' + (chipVal ? ' has-chip' : '') }, bottom) : null));
+}));
 const renderBody = () => {
   if (TILES) {
     renderTiles();
