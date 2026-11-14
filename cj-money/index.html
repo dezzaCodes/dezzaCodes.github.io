@@ -72,7 +72,8 @@ input:focus-visible,button:focus-visible,tr:focus-visible{outline:2px solid var(
 .cat{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:600;padding:0 8px;border-radius:99px;vertical-align:1px}
 .cat.flowers{background:var(--accent-soft);color:var(--accent)}
 .cat.juju{background:var(--clay-soft);color:var(--clay)}
-select.field{width:auto;padding-right:6px}
+/* Dropdowns draw their own arrow, with room on its right, since browsers' arrows sit against the edge. */
+select.field{width:auto;-webkit-appearance:none;appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238A968D' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:10px 6px}
 .cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
 /* Phones: one list at a time, picked with these tabs. */
 .ledger-tabs{display:none;align-items:baseline;gap:18px;margin:4px 0 10px}
@@ -138,7 +139,7 @@ tr.editing .actions .del{margin-right:auto;color:var(--loss)}
   form.entry{gap:5px}
   form.entry .field{padding-inline:6px}
   form.entry .field:not(.desc),form.entry > .btn{font-size:13px}
-  form.entry select.field{padding-right:2px}
+  form.entry select.field{padding-right:22px;background-position:right 7px center}
   form.entry .field.date{flex-basis:96px;min-width:96px}
   form.entry .field.amount{flex-basis:62px}
   form.entry > .btn{padding-inline:10px}
