@@ -228,10 +228,11 @@ dl.fields dt,dl.fields dd{padding:10px 0;border-bottom:1px solid var(--line);mar
 dl.fields dt{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-right:20px;padding-top:13px}
 dl.fields dd{white-space:pre-line}
 .siblings h3{margin:0 0 8px}
-.sib{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-size:14px;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 2px;color:var(--ink);cursor:pointer}
+.sib{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-size:14px;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 2px;color:var(--ink);cursor:pointer}
 .sib:hover{color:var(--accent)}
 .sib-name .variety{margin-left:6px;font-size:13px;color:var(--muted);white-space:nowrap}
-.sib .from{color:var(--muted);font-size:13px;text-align:right}
+/* Where it's from sits right after the name. */
+.sib .from{color:var(--muted);font-size:13px;text-align:left;justify-self:start}
 .sib-thumb{display:block;width:32px;height:40px;border-radius:4px;object-fit:cover;background:var(--sunk)}
 
 @media (max-width:860px){
@@ -246,7 +247,10 @@ dl.fields dd{white-space:pre-line}
   /* A bottom sheet: it opens partway up, and scrolling anywhere on it slides the whole sheet up to fill the
      screen, then on through its content. The dimmed strip above it closes it. */
   .scrim{display:block;overflow-y:auto;-webkit-overflow-scrolling:touch}
-  .sheet{width:100%;height:auto;min-height:100%;overflow:visible;margin-top:22vh;border-radius:16px 16px 0 0;animation:rise .24s ease-out}
+  /* The surface carries on below the sheet's bottom edge (the first shadow, painted over the soft one; shadows don't
+     add scroll room), so bouncing past the end on iPhones shows more sheet, not the page beneath. */
+  .sheet{width:100%;height:auto;min-height:100%;overflow:visible;margin-top:22vh;border-radius:16px 16px 0 0;animation:rise .24s ease-out;
+    box-shadow:0 calc(100vh - 24px) 0 0 var(--surface),var(--shadow)}
   @keyframes rise{from{transform:translateY(40px);opacity:.6}}
 }
 @media (max-width:640px){
