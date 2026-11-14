@@ -71,8 +71,8 @@ input:focus-visible,button:focus-visible,tr:focus-visible{outline:2px solid var(
 .flow .bar i{display:block;height:100%;border-radius:inherit;min-width:2px}
 .flow.income .bar i{background:var(--moss)}
 .flow.expense .bar i{background:var(--loss)}
-/* The businesses the card and lists include: ticks in the profit panel's top right corner. */
-.toggles{position:absolute;top:12px;right:12px;display:flex;gap:6px}
+/* The businesses the card and lists include: ticks stacked on the right of the profit panel. */
+.toggles{position:absolute;top:50%;right:14px;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px}
 .tog{display:inline-flex;align-items:center;gap:6px;font:500 14px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--muted);padding:5px 14px 5px 10px;border-radius:99px;cursor:pointer}
 .tog::before{content:"";width:14px;height:14px;border-radius:4px;border:1.5px solid currentColor;box-sizing:border-box}
 .tog:hover{color:var(--ink)}
