@@ -2,8 +2,8 @@
   "name": "Eyes",
   "short_name": "Eyes",
   "start_url": "./",
-  "scope": "./",
-  "display": "browser",
+  "scope": "../",
+  "display": "standalone",
   "background_color": "#F4F6F1",
   "theme_color": "#F4F6F1",
   "icons": [
@@ -23,5 +23,6 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "id": "/eyes/"
 }

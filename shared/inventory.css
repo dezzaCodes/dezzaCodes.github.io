@@ -32,7 +32,7 @@
 body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);padding:0 16px}
 .wrap{max-width:1280px;margin:0 auto;padding-block:28px 48px}
 /* Header: title (with links to the other pages) and sync line on the left, search on the right. */
-header.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin-bottom:22px}
+header.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin-bottom:16px}
 .title-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 h1{font:400 clamp(30px,5vw,44px)/1.05 var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
 .nav{font-size:14px;color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:4px 12px;background:var(--surface);white-space:nowrap}
@@ -245,11 +245,17 @@ dl.fields dd{white-space:pre-line}
   .wrap{padding-block:18px 32px}
   .search{flex-basis:100%}
   .title-row h1{flex-basis:100%}
-  /* Phones: Filters and Sort by on one line, Show sold and the total below. */
-  .toolbar{display:grid;grid-template-columns:auto 1fr;gap:10px}
-  .toolbar .sort-menu{grid-column:2;grid-row:1;justify-self:end}
-  .summary{grid-column:1/-1;grid-row:2}
-  .sort-menu select{max-width:200px}
+  /* Phones: Filters, the total and the sort menu share one row; the select says what it sorts by. */
+  .toolbar{gap:8px}
+  .summary{min-width:0}
+  .sort-menu .sort-label{display:none}
+  .sort-menu select{max-width:190px}
+  .total .total-label{display:none}
+  .total b{font-size:14px}
+  /* The filter panel's sections sit two to a row, their tops lined up. */
+  #facets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px;align-items:start}
+  #facets details.facet{min-width:0}
+  #facets details.status-facet{border-top:1px solid var(--line);padding-top:10px}
   .sub{font-size:13px}
   tbody tr{gap:5px}
   .hero{height:min(46vh,380px);object-fit:cover;object-position:50% 36%}
