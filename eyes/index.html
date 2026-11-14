@@ -99,8 +99,11 @@ const DATA = JSON.parse(document.getElementById('sheet-data').textContent);
 const col = name => (DATA.columns || []).findIndex(c => String(c).trim().toLowerCase() === name);
 const FROM = col('from'), DESC = col('description');
 const sentence = s => s.charAt(0).toUpperCase() + s.slice(1);
-// A From cell can name several places, separated by commas or semicolons.
-const places = s => [...new Set(s.split(/[,;\n]+/).map(p => p.trim().toUpperCase()).filter(Boolean))];
+// A From cell can name several places, separated by commas or semicolons. Each is shown as typed in the sheet;
+// the same place typed with different capitals is spelled the way it first appears, so it's one filter.
+const spelling = {};
+const places = s => [...new Set(s.split(/[,;\n]+/).map(p => p.trim()).filter(Boolean)
+  .map(p => spelling[p.toLowerCase()] ??= p))];
 const items = (DATA.rows || []).map((r, i) => {
   const from = places(FROM >= 0 ? String(r[FROM] || '') : '');
   const desc = sentence(DESC >= 0 ? String(r[DESC] || '').trim() : '');
