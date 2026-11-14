@@ -156,6 +156,7 @@ td .line2{display:block;color:var(--muted);font-size:12.5px}
 /* Sold items, when shown: greyed out with a Sold label after the name. */
 .pill.sold-pill{margin-left:8px;font:600 11.5px var(--body);background:var(--sunk);color:var(--muted);border:1px solid var(--line);vertical-align:3px;letter-spacing:.02em}
 .sheet h2 .pill.sold-pill{vertical-align:6px}
+.pill.status-pill{background:var(--accent-soft);color:var(--accent);border-color:transparent}
 tbody tr.sold td:not(.first),tbody tr.sold .thumb-box,tbody tr.sold td.first .variety,tbody tr.sold td.first .sub-text{opacity:.5}
 tbody tr.sold td.first{color:var(--muted)}
 .pill.swatch-pill{background:var(--sunk);color:var(--ink);white-space:nowrap}

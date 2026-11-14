@@ -125,13 +125,21 @@ const META = COLS.map((name, c) => ({ name, c, kind: kindOf(c) }));
 const ORDER = (CFG.order || []).map(cfgName);
 const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 ? ORDER.length + m.c : k; };
 // A "sold" column marks sold items: anything typed in it (yes, a date, a ticked checkbox) except no/false/0.
-// It isn't shown as a column; sold rows are left out of the table and every count unless the "Show sold" switch at
-// the top of the filter panel is on.
+// A "status" column (a dropdown in the sheet, one value per row) does the same when it says Sold; any other status
+// (e.g. ISO) shows as a label beside the name and gets its own filter. Neither is shown as a column; sold rows are
+// left out of the table and every count unless the "Show sold" switch at the top of the filter panel is on.
 const SOLD_C = META.findIndex(m => m.name.toLowerCase() === 'sold');
-ROWS.forEach(r => { r.sold = SOLD_C >= 0 && !!r.v[SOLD_C] && !/^(no|n|false|0|-)$/i.test(r.v[SOLD_C]); });
+const STATUS_C = META.findIndex(m => m.name.toLowerCase() === 'status');
+const isSoldStatus = v => /^sold$/i.test(v.trim());
+ROWS.forEach(r => {
+  r.status = STATUS_C >= 0 ? r.v[STATUS_C] : '';
+  r.sold = (SOLD_C >= 0 && !!r.v[SOLD_C] && !/^(no|n|false|0|-)$/i.test(r.v[SOLD_C])) || isSoldStatus(r.status);
+  // Sold has the Show sold switch instead of a filter option.
+  if (STATUS_C >= 0) r.tok[STATUS_C] = r.tok[STATUS_C].filter(t => !isSoldStatus(t));
+});
 const SOLD_N = ROWS.filter(r => r.sold).length;
 // The columns the page shows, in display order (the sold and sheet-date columns feed other features instead).
-const SHOWN = META.filter(m => m.c !== SOLD_C && m.c !== DATE_ADDED_C && m.kind !== 'empty').sort((a, b) => rank(a) - rank(b));
+const SHOWN = META.filter(m => m.c !== SOLD_C && m.c !== STATUS_C && m.c !== DATE_ADDED_C && m.kind !== 'empty').sort((a, b) => rank(a) - rank(b));
 // Columns that get no filter list in the sidebar; search still covers them.
 const NO_FILTER = (CFG.noFilter || []).map(cfgName);
 // The bar over each table photo (photoBar): the "main" column (the price) and, after a divider, the "extra" number
@@ -153,6 +161,8 @@ const photoBar = r => {
 document.body.classList.toggle('no-img', !HAS_IMG);
 document.body.classList.toggle('price-on-photo', !!BAR_MAIN);
 const FACETED = SHOWN.filter(m => !NO_FILTER.includes(m.name.toLowerCase()));
+// The status filter comes first, when some row has a status other than Sold.
+if (STATUS_C >= 0 && ROWS.some(r => r.tok[STATUS_C].length)) FACETED.unshift(META[STATUS_C]);
 
 const money = s => { const m = s.match(MONEY); return [m[2].toUpperCase(), parseFloat(m[1].replace(/,/g, ''))]; };
 const cmpVal = (kind, x, y) => {
@@ -211,7 +221,9 @@ const state = { q: '', sort: { c: Math.max(0, colIdx(cfgName(CFG.sortBy))), dir:
   showSold: false };
 // How many rows the current sold setting allows, before search and filters.
 const inStock = () => (state.showSold ? ROWS.length : ROWS.length - SOLD_N);
-const soldPill = r => (r.sold ? h('span', { class: 'pill sold-pill' }, 'Sold') : null);
+// The label beside a name: Sold, or the row's status.
+const soldPill = r => (r.sold ? h('span', { class: 'pill sold-pill' }, 'Sold')
+  : r.status ? h('span', { class: 'pill sold-pill status-pill' }, r.status) : null);
 
 const h = (tag, attrs = {}, ...kids) => {
   const el = document.createElement(tag);
