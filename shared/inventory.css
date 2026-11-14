@@ -90,6 +90,10 @@ details.facet summary > .name{flex:1}
 .opt.zero{opacity:.42}
 .sold-switch{display:flex;align-items:center;gap:8px;width:100%;margin:0 0 10px;padding:6px;border:0;border-radius:6px;background:none;color:inherit;font:inherit;font-size:14px;cursor:pointer;text-align:left}
 .sold-switch:hover{background:var(--sunk)}
+/* The Status section: its switches sit like the other sections' options. */
+.switches{margin-top:6px;display:flex;flex-direction:column;gap:1px}
+.switches .sold-switch{margin:0;height:30px;padding:0 6px}
+details.status-facet{border-top:0;padding-top:0}
 .sold-switch > span:first-child{flex:1}
 .sold-switch .c{font:12px var(--mono);color:var(--faint);font-variant-numeric:tabular-nums}
 .sold-switch .knob{position:relative;flex-shrink:0;width:34px;height:20px;border-radius:99px;background:var(--line);transition:background .15s}
@@ -167,6 +171,8 @@ tbody tr.sold td.first{color:var(--muted)}
 .swatches{display:inline-flex;flex-wrap:wrap;gap:4px}
 /* Colour chips: one per line in the table on computers (side by side on phone cards). */
 .swatches.stack{flex-direction:column;align-items:flex-start}
+/* In the detail panel, several colours sit side by side. */
+.sheet .swatches.stack{flex-direction:row;flex-wrap:wrap}
 /* Several places in one cell wrap rather than widening the column. */
 .swatches.chips{max-width:230px}
 .num{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 6px;border-radius:6px;background:var(--clay-soft);color:var(--clay);font:500 12px var(--mono)}
