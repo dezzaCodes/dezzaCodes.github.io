@@ -511,14 +511,34 @@ document.getElementById('q').addEventListener('input', e => {
 // ---------- detail sheet ----------
 const scrim = document.getElementById('scrim'), sheet = document.getElementById('sheet');
 let cur = -1, lastFocus = null;
+// While the sheet is open, the page behind can't scroll or be tapped: the body is pinned where it was (iOS ignores
+// overflow:hidden on its own) and the page content is inert.
+let lockedY = 0;
+const pageContent = document.querySelector('.wrap');
+function lockPage(on) {
+  const b = document.body;
+  if (on === b.classList.contains('locked')) return;
+  if (on) {
+    lockedY = window.scrollY;
+    b.style.top = `-${lockedY}px`;
+    b.classList.add('locked');
+  } else {
+    b.classList.remove('locked');
+    b.style.top = '';
+    window.scrollTo(0, lockedY);
+  }
+  pageContent.inert = on;
+}
 function openDetail(idx) {
   if (cur < 0) lastFocus = document.activeElement;
   cur = idx;
   const r = state.view[idx];
   preload(state.view[idx - 1]); preload(state.view[idx + 1]);
-  // "Other <name> entries" rows show this text column and chip column.
-  const DESC = colIdx(CFG.sibText), FROM = colIdx(CFG.sibChip);
-  const sibs = ROWS.filter(o => o !== r && o.v[0] && o.v[0].toLowerCase() === r.v[0].toLowerCase());
+  // "Other <name> entries": every other row with the same name, whatever its bracketed variety, each listed by its
+  // full name with its chip column (CFG.sibChip, e.g. where it's from).
+  const FROM = colIdx(CFG.sibChip);
+  const base = v => splitName(v)[0].trim().toLowerCase();
+  const sibs = ROWS.filter(o => o !== r && o.v[0] && r.v[0] && base(o.v[0]) === base(r.v[0]));
   const close = h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Close', onclick: closeDetail }, '×');
   fill(sheet,
     h('div', { class: 'sheet-nav' },
@@ -536,23 +556,58 @@ function openDetail(idx) {
         ? r.v[m.c] : cell(m, r.v[m.c]))
     ])),
     sibs.length ? h('div', { class: 'siblings' },
-      h('h3', { class: 'eyebrow' }, `Other ${splitName(r.v[0]).filter(Boolean).join(', ')} entries (${sibs.length})`),
+      h('h3', { class: 'eyebrow' }, `Other ${splitName(r.v[0])[0]} entries (${sibs.length})`),
       sibs.map(o => h('button', { class: 'sib', type: 'button', onclick: () => {
         let j = state.view.indexOf(o);
         if (j < 0) { state.view.splice(idx + 1, 0, o); renderBody(); j = idx + 1; }
         openDetail(j);
       }}, HAS_IMG ? thumb(o, 'sib-thumb') : h('span'),
-         h('span', {}, (DESC >= 0 ? o.v[DESC].split('\n')[0] : '') || '—'),
+         h('span', { class: 'sib-name' }, nameParts(o.v[0])),
          h('span', { class: 'from' }, FROM >= 0 && o.v[FROM] ? (chipColour.has(FROM) ? chips(META[FROM], o.v[FROM]) : o.v[FROM]) : '')))) : null
   );
+  const opening = scrim.hidden;
+  lockPage(true);
   scrim.hidden = false;
-  close.focus();
+  if (opening) scrim.scrollTop = 0;
+  close.focus({ preventScroll: true });
 }
 function closeDetail() {
   scrim.hidden = true; cur = -1;
+  lockPage(false);
   if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
 }
 scrim.addEventListener('click', e => { if (e.target === scrim) closeDetail(); });
+// Phones: with the sheet at its starting position, pulling it down moves it with the finger; a quick flick down
+// (or a long pull) sends it away, anything less springs back.
+const asBottomSheet = window.matchMedia('(max-width:860px)');
+let drag = null;
+scrim.addEventListener('touchstart', e => {
+  drag = e.touches.length === 1 && asBottomSheet.matches && scrim.scrollTop <= 0
+    ? { y: e.touches[0].clientY, t: performance.now(), dy: 0 } : null;
+}, { passive: true });
+scrim.addEventListener('touchmove', e => {
+  if (!drag) return;
+  drag.dy = Math.max(0, e.touches[0].clientY - drag.y);
+  if (scrim.scrollTop > 0) { drag = null; sheet.style.transform = ''; return; }
+  sheet.style.transition = 'none';
+  sheet.style.transform = drag.dy ? `translateY(${drag.dy}px)` : '';
+}, { passive: true });
+const endDrag = () => {
+  if (!drag) return;
+  const { dy, t } = drag;
+  drag = null;
+  const fast = dy / Math.max(1, performance.now() - t) > 0.5;
+  sheet.style.transition = 'transform .2s ease-out';
+  if (dy > 40 && (fast || dy > 160)) {
+    sheet.style.transform = 'translateY(100vh)';
+    setTimeout(() => { closeDetail(); sheet.style.transform = sheet.style.transition = ''; }, 190);
+  } else {
+    sheet.style.transform = '';
+    setTimeout(() => { if (!drag) sheet.style.transition = ''; }, 210);
+  }
+};
+scrim.addEventListener('touchend', endDrag);
+scrim.addEventListener('touchcancel', endDrag);
 document.addEventListener('keydown', e => {
   if (cur < 0) return;
   if (e.key === 'Escape') closeDetail();

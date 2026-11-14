@@ -207,8 +207,10 @@ a{color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.to-top{transition:none}}
 
 /* detail sheet */
-.scrim{position:fixed;inset:0;background:rgba(10,14,11,.42);z-index:20;display:flex;justify-content:flex-end}
-.sheet{background:var(--surface);width:min(460px,100%);height:100%;overflow:auto;box-shadow:var(--shadow);padding:calc(env(safe-area-inset-top,0px) + 20px) 24px calc(env(safe-area-inset-bottom,0px) + 28px);display:flex;flex-direction:column;gap:18px;animation:slide .22s ease-out}
+.scrim{position:fixed;inset:0;background:rgba(10,14,11,.42);z-index:20;display:flex;justify-content:flex-end;overscroll-behavior:contain}
+/* While the sheet is open the page behind it stays put (see lockPage). */
+body.locked{position:fixed;left:0;right:0;overflow:hidden}
+.sheet{background:var(--surface);width:min(460px,100%);height:100%;overflow:auto;overscroll-behavior:contain;box-shadow:var(--shadow);padding:calc(env(safe-area-inset-top,0px) + 20px) 24px calc(env(safe-area-inset-bottom,0px) + 28px);display:flex;flex-direction:column;gap:18px;animation:slide .22s ease-out}
 @keyframes slide{from{transform:translateX(24px);opacity:.6}}
 @media (prefers-reduced-motion:reduce){.sheet{animation:none}}
 .sheet-nav{display:flex;align-items:center;gap:6px}
@@ -228,6 +230,7 @@ dl.fields dd{white-space:pre-line}
 .siblings h3{margin:0 0 8px}
 .sib{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-size:14px;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 2px;color:var(--ink);cursor:pointer}
 .sib:hover{color:var(--accent)}
+.sib-name .variety{margin-left:6px;font-size:13px;color:var(--muted);white-space:nowrap}
 .sib .from{color:var(--muted);font-size:13px;text-align:right}
 .sib-thumb{display:block;width:32px;height:40px;border-radius:4px;object-fit:cover;background:var(--sunk)}
 
@@ -240,8 +243,11 @@ dl.fields dd{white-space:pre-line}
   .phone-flex{display:grid}
   .phone-block{display:block}
   .table-box{max-height:none}
-  .sheet{width:100%;height:auto;max-height:88%;margin-top:auto;border-radius:16px 16px 0 0}
-  .scrim{align-items:flex-end}
+  /* A bottom sheet: it opens partway up, and scrolling anywhere on it slides the whole sheet up to fill the
+     screen, then on through its content. The dimmed strip above it closes it. */
+  .scrim{display:block;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .sheet{width:100%;height:auto;min-height:100%;overflow:visible;margin-top:22vh;border-radius:16px 16px 0 0;animation:rise .24s ease-out}
+  @keyframes rise{from{transform:translateY(40px);opacity:.6}}
 }
 @media (max-width:640px){
   .wrap{padding-block:18px 32px}
