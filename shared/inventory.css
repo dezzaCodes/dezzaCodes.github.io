@@ -39,7 +39,7 @@ h1{font:400 clamp(30px,5vw,44px)/1.05 var(--display);margin:0;letter-spacing:-.0
 .nav:hover{background:var(--sunk)}
 .nav.icon{font-size:17px;line-height:1.2;padding:3px 10px}
 .nav[aria-current]{background:var(--sunk);border-color:var(--accent)}
-/* Flowers and jujus: one pill in two halves. */
+/* Jujus and eyes: one pill in two halves. */
 .nav-pair{display:inline-flex}.nav-pair .nav{border-radius:0;position:relative}.nav-pair .nav:first-child{border-radius:99px 0 0 99px}.nav-pair .nav:last-child{border-radius:0 99px 99px 0;margin-left:-1px}.nav-pair .nav[aria-current]{z-index:1}
 .sub{color:var(--muted);margin:8px 0 0;font-size:14px}
 .sub b{color:var(--ink);font-weight:600}
