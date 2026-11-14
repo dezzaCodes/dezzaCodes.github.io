@@ -429,7 +429,32 @@ const cell = (m, v, first) => {
 };
 
 const tbody = document.getElementById('tbody');
+// Tile pages (CFG.tiles: { top, bottom } column names) show square photo tiles instead of the table, with the top
+// column in a bar across the top of the photo and the bottom column (usually the name) across the bottom.
+const TILES = CFG.tiles && HAS_IMG ? { top: colIdx(cfgName(CFG.tiles.top)), bottom: colIdx(cfgName(CFG.tiles.bottom)) } : null;
+const tileGrid = TILES ? h('ul', { class: 'tile-grid' }) : null;
+if (TILES) {
+  const box = document.getElementById('tableBox');
+  box.classList.add('tiles');
+  box.querySelector('table').hidden = true;
+  box.prepend(tileGrid);
+}
+const tileImg = r => {
+  const src = IMGS[r.i] || PHOTOS[r.i]?.src;
+  return src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : null;
+};
+const renderTiles = () => tileGrid.replaceChildren(...state.view.map((r, idx) => h('li', {},
+  h('button', { class: 'tile' + (r.sold ? ' sold' : ''), type: 'button', 'aria-label': r.v[TILES.bottom] || r.v[0] || 'Untitled',
+    onclick: () => openDetail(idx), onpointerdown: () => preload(r), onfocus: () => preload(r) },
+    tileImg(r),
+    TILES.top >= 0 && r.v[TILES.top] ? h('span', { class: 'tile-top' }, r.v[TILES.top].split('\n')[0]) : null,
+    h('span', { class: 'tile-bottom' }, TILES.bottom >= 0 && r.v[TILES.bottom] ? splitName(r.v[TILES.bottom])[0] : '', soldPill(r))))));
 const renderBody = () => {
+  if (TILES) {
+    renderTiles();
+    document.getElementById('empty').hidden = state.view.length > 0;
+    return;
+  }
   tbody.replaceChildren(...state.view.map((r, idx) => h('tr', { tabindex: 0, class: r.sold ? 'sold' : null,
     onclick: () => openDetail(idx),
     onpointerdown: () => preload(r), onfocus: () => preload(r),
