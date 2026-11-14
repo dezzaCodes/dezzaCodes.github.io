@@ -57,7 +57,7 @@ input:focus-visible,button:focus-visible,tr:focus-visible{outline:2px solid var(
 
 /* The summary card: profit or loss on the left, income and expenses as two rows with bars on the right. */
 .money{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:24px}
-.result{display:flex;flex-direction:column;justify-content:center;gap:2px;padding:18px 22px;min-width:0}
+.result{position:relative;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:18px 22px;min-width:0}
 .result .v{font:500 clamp(28px,4.2vw,40px)/1.1 var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
 .result .note{font-size:13px;color:var(--muted);margin-top:4px}
 .result.profit{background:var(--moss-soft)}
@@ -71,8 +71,8 @@ input:focus-visible,button:focus-visible,tr:focus-visible{outline:2px solid var(
 .flow .bar i{display:block;height:100%;border-radius:inherit;min-width:2px}
 .flow.income .bar i{background:var(--moss)}
 .flow.expense .bar i{background:var(--loss)}
-/* The businesses the card and lists include, above the card. */
-.toggles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+/* The businesses the card and lists include: ticks in the profit panel's top right corner. */
+.toggles{position:absolute;top:12px;right:12px;display:flex;gap:6px}
 .tog{display:inline-flex;align-items:center;gap:6px;font:500 14px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--muted);padding:5px 14px 5px 10px;border-radius:99px;cursor:pointer}
 .tog::before{content:"";width:14px;height:14px;border-radius:4px;border:1.5px solid currentColor;box-sizing:border-box}
 .tog:hover{color:var(--ink)}
@@ -186,7 +186,6 @@ tr.editing .actions .del{margin-right:auto;color:var(--loss)}
   </section>
 
   <div id="app" hidden>
-    <div class="toggles" id="toggles" role="group" aria-label="Businesses to include"></div>
     <div class="money" id="tiles"></div>
     <div class="ledger-tabs" id="ledgerTabs" role="tablist" aria-label="List"></div>
     <div class="cols" id="cols">
@@ -319,8 +318,9 @@ function render() {
   renderStatus();
   const all = current(), d = { entries: all.entries.filter(e => shown.has(e.category)) };
   const t = totals(d), net = t.income - t.expense;
-  document.getElementById('toggles').replaceChildren(...Object.entries(CATS).map(([k, name]) =>
-    h('button', { class: 'tog ' + k, type: 'button', 'aria-pressed': String(shown.has(k)), title: `Include ${CAT_NAMES[k]}`, onclick: () => toggleCat(k) }, name, ' ', CAT_NAMES[k])));
+  // The businesses included, as ticks in the corner of the profit panel.
+  const toggles = h('div', { class: 'toggles', role: 'group', 'aria-label': 'Businesses to include' }, Object.entries(CATS).map(([k, name]) =>
+    h('button', { class: 'tog ' + k, type: 'button', 'aria-pressed': String(shown.has(k)), 'aria-label': CAT_NAMES[k], title: `Include ${CAT_NAMES[k]}`, onclick: () => toggleCat(k) }, name)));
   // Each bar is its total against the larger of the two.
   const most = Math.max(t.income, t.expense, 1);
   const flow = (type, label) => h('div', { class: 'flow ' + type },
@@ -328,7 +328,7 @@ function render() {
     h('span', { class: 'bar', 'aria-hidden': 'true' }, h('i', { style: `width:${(t[type] / most * 100).toFixed(1)}%` })));
   const note = net >= 0 ? (t.income ? `${Math.round(net / t.income * 100)}% margin` : '') : `${fmt(-net)} more spent than earned`;
   document.getElementById('tiles').replaceChildren(
-    h('div', { class: 'result ' + (net >= 0 ? 'profit' : 'loss') },
+    h('div', { class: 'result ' + (net >= 0 ? 'profit' : 'loss') }, toggles,
       h('span', { class: 'eyebrow' }, net >= 0 ? 'Profit' : 'Loss'), h('span', { class: 'v' }, fmt(net)),
       note ? h('span', { class: 'note' }, note) : null),
     h('div', { class: 'flows' }, flow('income', 'Income'), flow('expense', 'Expenses')),
