@@ -228,11 +228,13 @@ dl.fields dt,dl.fields dd{padding:10px 0;border-bottom:1px solid var(--line);mar
 dl.fields dt{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-right:20px;padding-top:13px}
 dl.fields dd{white-space:pre-line}
 .siblings h3{margin:0 0 8px}
-.sib{display:grid;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-size:14px;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 2px;color:var(--ink);cursor:pointer}
+.sib{display:grid;grid-template-columns:auto minmax(0,1fr) fit-content(55%);align-items:center;gap:12px;width:100%;text-align:left;font:inherit;font-size:14px;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 2px;color:var(--ink);cursor:pointer}
 .sib:hover{color:var(--accent)}
-.sib-name .variety{margin-left:6px;font-size:13px;color:var(--muted);white-space:nowrap}
-/* Where it's from sits right after the name. */
-.sib .from{color:var(--muted);font-size:13px;text-align:left;justify-self:start}
+.sib-name{min-width:0}
+.sib-name .variety{display:inline-block;margin-left:6px;font-size:13px;color:var(--muted);white-space:nowrap}
+/* Where it's from sits on the right, wrapped pills too. */
+.sib .from{color:var(--muted);font-size:13px;text-align:right;justify-self:end}
+.sib .from .chips{justify-content:flex-end}
 .sib-thumb{display:block;width:32px;height:40px;border-radius:4px;object-fit:cover;background:var(--sunk)}
 
 @media (max-width:860px){
