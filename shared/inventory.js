@@ -126,18 +126,21 @@ const ORDER = (CFG.order || []).map(cfgName);
 const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 ? ORDER.length + m.c : k; };
 // A "sold" column marks sold items: anything typed in it (yes, a date, a ticked checkbox) except no/false/0.
 // A "status" column (a dropdown in the sheet, one value per row) does the same when it says Sold; any other status
-// (e.g. ISO) shows as a label beside the name and gets its own filter. Neither is shown as a column; sold rows are
-// left out of the table and every count unless the "Show sold" switch at the top of the filter panel is on.
+// (e.g. ISO) shows as a label beside the name. Neither is shown as a column. Rows with a status (sold included) are
+// left out of the table and every count until that status's switch ("Show sold", "Show ISO") at the top of the
+// filter panel is on.
 const SOLD_C = META.findIndex(m => m.name.toLowerCase() === 'sold');
 const STATUS_C = META.findIndex(m => m.name.toLowerCase() === 'status');
 const isSoldStatus = v => /^sold$/i.test(v.trim());
 ROWS.forEach(r => {
   r.status = STATUS_C >= 0 ? r.v[STATUS_C] : '';
   r.sold = (SOLD_C >= 0 && !!r.v[SOLD_C] && !/^(no|n|false|0|-)$/i.test(r.v[SOLD_C])) || isSoldStatus(r.status);
-  // Sold has the Show sold switch instead of a filter option.
-  if (STATUS_C >= 0) r.tok[STATUS_C] = r.tok[STATUS_C].filter(t => !isSoldStatus(t));
+  // The switch that shows this row, if it starts hidden.
+  r.hideAs = r.sold ? 'Sold' : r.status;
 });
-const SOLD_N = ROWS.filter(r => r.sold).length;
+// Each status with its number of rows: Sold first, then the others in the order they first appear in the sheet.
+const STATUSES = new Map(ROWS.some(r => r.sold) ? [['Sold', 0]] : []);
+ROWS.forEach(r => { if (r.hideAs) STATUSES.set(r.hideAs, (STATUSES.get(r.hideAs) || 0) + 1); });
 // The columns the page shows, in display order (the sold and sheet-date columns feed other features instead).
 const SHOWN = META.filter(m => m.c !== SOLD_C && m.c !== STATUS_C && m.c !== DATE_ADDED_C && m.kind !== 'empty').sort((a, b) => rank(a) - rank(b));
 // Columns that get no filter list in the sidebar; search still covers them.
@@ -161,8 +164,6 @@ const photoBar = r => {
 document.body.classList.toggle('no-img', !HAS_IMG);
 document.body.classList.toggle('price-on-photo', !!BAR_MAIN);
 const FACETED = SHOWN.filter(m => !NO_FILTER.includes(m.name.toLowerCase()));
-// The status filter comes first, when some row has a status other than Sold.
-if (STATUS_C >= 0 && ROWS.some(r => r.tok[STATUS_C].length)) FACETED.unshift(META[STATUS_C]);
 
 const money = s => { const m = s.match(MONEY); return [m[2].toUpperCase(), parseFloat(m[1].replace(/,/g, ''))]; };
 const cmpVal = (kind, x, y) => {
@@ -216,11 +217,12 @@ const chip = (c, v) => h('span', { class: 'pill chip-col ' + (chipColour.get(c)?
 const chips = (m, v) => h('span', { class: 'swatches chips' }, splitCell(m.name, v).map(t => chip(m.c, t)));
 
 // Default sort: CFG.sortBy's column if the page names one, else the first column; ties go by the first column.
-// Sold items start hidden on every visit.
+// Sold and other status items start hidden on every visit (state.show holds the statuses switched on).
 const state = { q: '', sort: { c: Math.max(0, colIdx(cfgName(CFG.sortBy))), dir: CFG.sortDir || 1 }, sel: new Map(), view: [],
-  showSold: false };
-// How many rows the current sold setting allows, before search and filters.
-const inStock = () => (state.showSold ? ROWS.length : ROWS.length - SOLD_N);
+  show: new Set() };
+const visible = r => !r.hideAs || state.show.has(r.hideAs);
+// How many rows the status switches allow, before search and filters.
+const inStock = () => ROWS.filter(visible).length;
 // The label beside a name: Sold, or the row's status.
 const soldPill = r => (r.sold ? h('span', { class: 'pill sold-pill' }, 'Sold')
   : r.status ? h('span', { class: 'pill sold-pill status-pill' }, r.status) : null);
@@ -317,7 +319,7 @@ async function syncNow() {
 
 // ---------- filtering ----------
 const passes = (r, skip) => {
-  if (r.sold && !state.showSold) return false;
+  if (!visible(r)) return false;
   if (state.q && !r.hay.includes(state.q)) return false;
   for (const [c, set] of state.sel) {
     if (c === skip || !set.size) continue;
@@ -329,13 +331,13 @@ const passes = (r, skip) => {
 // ---------- facets ----------
 const facetEls = new Map();
 const facetsBox = document.getElementById('facets');
-// First in the panel: a switch for whether sold items are shown at all.
-if (SOLD_N) {
-  const sw = h('button', { class: 'sold-switch', type: 'button', role: 'switch', 'aria-checked': String(state.showSold), onclick: () => {
-    state.showSold = !state.showSold;
-    sw.setAttribute('aria-checked', String(state.showSold));
+// First in the panel: a switch per status (Show sold, Show ISO, …) for whether those items are shown at all.
+for (const [st, n] of STATUSES) {
+  const sw = h('button', { class: 'sold-switch', type: 'button', role: 'switch', 'aria-checked': 'false', onclick: () => {
+    state.show.has(st) ? state.show.delete(st) : state.show.add(st);
+    sw.setAttribute('aria-checked', String(state.show.has(st)));
     update();
-  }}, h('span', {}, 'Show sold'), h('span', { class: 'c' }, SOLD_N), h('span', { class: 'knob', 'aria-hidden': 'true' }));
+  }}, h('span', {}, `Show ${st === 'Sold' ? 'sold' : st}`), h('span', { class: 'c' }, n), h('span', { class: 'knob', 'aria-hidden': 'true' }));
   facetsBox.append(sw);
 }
 for (const m of FACETED) {
