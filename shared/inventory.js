@@ -366,7 +366,8 @@ const cell = (m, v, first) => {
 const tbody = document.getElementById('tbody');
 // Tile pages (CFG.tiles: { top, bottom } column names) show square photo tiles instead of the table, with the top
 // column in a bar across the top of the photo and the bottom column as a subtitle across the bottom. When the name
-// column is on top, its bracketed variety ("Chrysanthemum (one ply)") leads the subtitle.
+// column is on top, its bracketed variety ("Chrysanthemum (one ply)") follows the name in the top bar, styled like
+// the subtitle.
 const TILES = CFG.tiles && HAS_IMG ? { top: colIdx(cfgName(CFG.tiles.top)), bottom: colIdx(cfgName(CFG.tiles.bottom)) } : null;
 const tileGrid = TILES ? h('ul', { class: 'tile-grid' }) : null;
 if (TILES) {
@@ -379,30 +380,30 @@ const tileImg = r => {
   const src = IMGS[r.i] || PHOTOS[r.i]?.src;
   return src ? h('img', { src, alt: '', loading: 'lazy', decoding: 'async' }) : null;
 };
-// A tile's [top text, subtitle text, chip column value]: a bottom column shown as chips elsewhere (chipCols, e.g.
-// the juju series) is a chip here too, after any subtitle text.
+// A tile's [top text, variety, subtitle text, chip column value]: a bottom column shown as chips elsewhere
+// (chipCols, e.g. the juju series) is a chip here too, after any subtitle text.
 const BOTTOM_CHIP = TILES && chipColour.has(TILES.bottom);
 const tileText = r => {
-  let top = '';
+  let top = '', variety = '';
   const bottom = [];
   if (TILES.top >= 0 && r.v[TILES.top]) {
-    if (TILES.top === 0) { const [name, variety] = splitName(r.v[0]); top = name; if (variety) bottom.push(variety); }
+    if (TILES.top === 0) [top, variety = ''] = splitName(r.v[0]);
     else top = r.v[TILES.top].split('\n')[0];
   }
   const b = TILES.bottom >= 0 ? r.v[TILES.bottom] : '';
   if (b && !BOTTOM_CHIP) bottom.push(TILES.bottom === 0 ? splitName(b)[0] : b.split('\n').join(' · '));
-  return [top, bottom.join(' · '), BOTTOM_CHIP ? b : ''];
+  return [top, variety, bottom.join(' · '), BOTTOM_CHIP ? b : ''];
 };
 const renderTiles = () => tileGrid.replaceChildren(...state.view.map((r, idx) => {
-  const [top, sub, chipVal] = tileText(r);
+  const [top, variety, sub, chipVal] = tileText(r);
   // Sold and ISO labels stay off the tiles (they're in the detail panel).
   const bottom = [sub || null, chipVal ? chips(META[TILES.bottom], chipVal) : null].filter(Boolean);
   return h('li', {},
     h('button', { class: 'tile' + (r.sold ? ' sold' : ''), type: 'button', 'aria-label': (r.v[0] && splitName(r.v[0])[0]) || 'Untitled',
       onclick: () => openDetail(idx), onpointerdown: () => preload(r), onfocus: () => preload(r),
-      title: [top, sub, chipVal].filter(Boolean).join(' — ') },
+      title: [top + (variety ? ` (${variety})` : ''), sub, chipVal].filter(Boolean).join(' — ') },
       tileImg(r),
-      top ? h('span', { class: 'tile-top' }, top) : null,
+      top ? h('span', { class: 'tile-top' }, top, variety ? h('span', { class: 'tile-variety' }, variety) : null) : null,
       bottom.length ? h('span', { class: 'tile-bottom' + (chipVal ? ' has-chip' : '') }, bottom) : null));
 }));
 const renderBody = () => {
