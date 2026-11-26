@@ -94,6 +94,11 @@ TABS = [
     ("1990863409", "juju-inventory/index.html", "juju-inventory/images.json"),     # jujus
     ("589726417", "eyes/index.html", "eyes/images.json"),                          # eyes
 ]
+# Tabs found by name, for pages whose tab may not exist yet: skipped while the sheet has no tab of that name, and shown
+# as an empty page while it has headings but no rows. Once the tab exists its gid can move into TABS.
+NAMED_TABS = [
+    ("beads", "beads-inventory/index.html", "beads-inventory/images.json"),
+]
 # Tabs that hold photos, no headings: read along each row from A1 to the first empty cell, row by row down to the
 # first row with nothing in column A. A row of text right under a row of photos holds their details, each in the cell
 # under its photo, shown when the photo is opened. Same (gid, page, thumbnails file) layout as TABS.
@@ -180,7 +185,13 @@ def petal_colours(cols, rows, photos, out_dir):
     return out
 
 
-def read_tab(gid, out_dir):
+def tab_gids():
+    """{tab name (lower case): gid} for every tab in the sheet, from the sheet's htmlview."""
+    html, _ = get(SHEET + "/htmlview")
+    return {name.lower(): gid for name, gid in re.findall(r'\{name: "((?:[^"\\]|\\.)*)", pageUrl: "[^"]*?gid=(\d+)', html.decode("utf-8", "replace"))}
+
+
+def read_tab(gid, out_dir, allow_empty=False):
     """Returns (columns, rows, thumbnails, photos) for one tab; blank rows are dropped and the rest padded to the
     columns. Thumbnails and photos are keyed by row index (as a string)."""
     raw, ctype = get(SHEET + f"/export?format=csv&gid={gid}")
@@ -191,9 +202,11 @@ def read_tab(gid, out_dir):
     # Drop trailing columns with no heading and nothing in them.
     width = max((i + 1 for r in allrows for i, c in enumerate(r) if c.strip()), default=0)
     allrows = [r[:width] for r in allrows]
-    cols = allrows[0]
+    cols = allrows[0] if allrows else []
     # CSV row index i corresponds to sheet row i + 1; keep that link while dropping blank rows.
     kept = [(i + 1, r) for i, r in enumerate(allrows[1:], start=1) if any(c.strip() for c in r)]
+    if not kept and allow_empty:
+        return cols, [], {}, {}
     if not kept:
         sys.exit(f"Tab {gid} has no data rows. Nothing published.")
 
@@ -311,6 +324,15 @@ def added_dates(old, cols, rows, today, old_photos=None, new_photos=None):
 def main(out_dir="."):
     os.makedirs(os.path.join(out_dir, PHOTO_DIR), exist_ok=True)
     tabs = [(page, thumbs, *read_tab(gid, out_dir)) for gid, page, thumbs in TABS]
+    if NAMED_TABS:
+        gids = tab_gids()
+        if not gids:
+            sys.exit("Couldn't read the sheet's list of tabs. Nothing published.")
+        for name, page, thumbs in NAMED_TABS:
+            if name.lower() in gids:
+                tabs.append((page, thumbs, *read_tab(gids[name.lower()], out_dir, allow_empty=True)))
+            else:
+                print(f"{page}: skipped, the sheet has no {name} tab yet")
     photo_tabs = [(page, thumbs, *read_photo_tab(gid, out_dir)) for gid, page, thumbs in PHOTO_TABS]
 
     # Drop high-resolution files no longer used by any row of any tab.

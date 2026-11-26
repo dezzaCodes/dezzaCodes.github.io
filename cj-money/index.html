@@ -18,7 +18,7 @@
 :root{
   --bg:#F4F6F1; --surface:#FFFFFF; --sunk:#EBEFE7; --ink:#1E2620; --muted:#5D6A61; --faint:#8A968D;
   --line:#DCE2D8; --accent:#7B2E63; --accent-ink:#FFFFFF; --accent-soft:#F3E5EE;
-  --moss:#3D6A48; --moss-soft:#E2EEE4; --clay:#8A5A2B; --clay-soft:#F3E9DD; --loss:#8A2F45; --loss-soft:#F7E1E6;
+  --moss:#3D6A48; --moss-soft:#E2EEE4; --clay:#8A5A2B; --clay-soft:#F3E9DD; --sea:#2D6A78; --sea-soft:#DFEDF0; --loss:#8A2F45; --loss-soft:#F7E1E6;
   --display:"Young Serif",Georgia,"Times New Roman",serif;
   --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
@@ -27,13 +27,13 @@
   color-scheme:dark;
   --bg:#121613; --surface:#1A201C; --sunk:#151A16; --ink:#E7ECE5; --muted:#A0ACA3; --faint:#76827A;
   --line:#2C352F; --accent:#DE93C4; --accent-ink:#1E1219; --accent-soft:#3A2333;
-  --moss:#92C59F; --moss-soft:#1F3226; --clay:#E0B17F; --clay-soft:#3A2C1D; --loss:#EFA2B4; --loss-soft:#3D2028;
+  --moss:#92C59F; --moss-soft:#1F3226; --clay:#E0B17F; --clay-soft:#3A2C1D; --sea:#8CC6D3; --sea-soft:#1B3137; --loss:#EFA2B4; --loss-soft:#3D2028;
 }}
 :root[data-theme="dark"]{
   color-scheme:dark;
   --bg:#121613; --surface:#1A201C; --sunk:#151A16; --ink:#E7ECE5; --muted:#A0ACA3; --faint:#76827A;
   --line:#2C352F; --accent:#DE93C4; --accent-ink:#1E1219; --accent-soft:#3A2333;
-  --moss:#92C59F; --moss-soft:#1F3226; --clay:#E0B17F; --clay-soft:#3A2C1D; --loss:#EFA2B4; --loss-soft:#3D2028;
+  --moss:#92C59F; --moss-soft:#1F3226; --clay:#E0B17F; --clay-soft:#3A2C1D; --sea:#8CC6D3; --sea-soft:#1B3137; --loss:#EFA2B4; --loss-soft:#3D2028;
 }
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);padding:0 16px}
@@ -72,6 +72,7 @@ input:focus-visible,button:focus-visible,tr:focus-visible{outline:2px solid var(
 .flow.income .bar i{background:var(--moss)}
 .flow.expense .bar i{background:var(--loss)}
 /* The businesses the card and lists include: ticks stacked on the right of the profit panel. */
+.result{min-height:132px} /* room for the three ticks */
 .toggles{position:absolute;top:50%;right:14px;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px}
 .tog{display:inline-flex;align-items:center;gap:6px;font:500 14px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--muted);padding:5px 14px 5px 10px;border-radius:99px;cursor:pointer}
 .tog::before{content:"";width:14px;height:14px;border-radius:4px;border:1.5px solid currentColor;box-sizing:border-box}
@@ -79,11 +80,14 @@ input:focus-visible,button:focus-visible,tr:focus-visible{outline:2px solid var(
 .tog[aria-pressed="true"]::before{content:"✓";display:grid;place-items:center;font-size:11px;font-weight:600;line-height:1;border:0;color:var(--surface)}
 .tog.flowers[aria-pressed="true"]::before{background:var(--accent)}
 .tog.juju[aria-pressed="true"]::before{background:var(--clay)}
+.tog.beads[aria-pressed="true"]::before{background:var(--sea)}
 .tog.flowers[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 .tog.juju[aria-pressed="true"]{background:var(--clay-soft);border-color:var(--clay);color:var(--clay)}
+.tog.beads[aria-pressed="true"]{background:var(--sea-soft);border-color:var(--sea);color:var(--sea)}
 .cat{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:600;padding:0 8px;border-radius:99px;vertical-align:1px}
 .cat.flowers{background:var(--accent-soft);color:var(--accent)}
 .cat.juju{background:var(--clay-soft);color:var(--clay)}
+.cat.beads{background:var(--sea-soft);color:var(--sea)}
 /* Dropdowns draw their own arrow, with room on its right, since browsers' arrows sit against the edge. */
 select.field{width:auto;-webkit-appearance:none;appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238A968D' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:10px 6px}
 .cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
@@ -163,6 +167,7 @@ tr.editing .actions .del{margin-right:auto;color:var(--loss)}
       <h1>CJ Money</h1>
       <a class="nav icon" href="../flower-inventory/" aria-label="Flowers" title="Flowers">🌻</a>
       <span class="nav-pair"><a class="nav icon" href="../juju-inventory/" aria-label="Jujus" title="Jujus">🧸</a><a class="nav icon" href="../eyes/" aria-label="Eyes" title="Eyes">👁️</a></span>
+      <a class="nav icon" href="../beads-inventory/" aria-label="Beads" title="Beads">📿</a>
       <a class="nav icon" href="../cj-money/" aria-label="CJ Money" title="CJ Money" aria-current="page">💵</a>
       <a class="nav icon" href="../murakami/" aria-label="Murakami" title="Murakami">🌸</a>
       <a class="nav icon" href="../smiski/" aria-label="Smiski" title="Smiski">🤢</a>
@@ -286,15 +291,22 @@ function renderStatus() {
 
 const TITLES = { income: 'Income', expense: 'Expenses' };
 // Every entry belongs to one business.
-const CATS = { flowers: '🌻', juju: '🧸' };
-const CAT_NAMES = { flowers: 'Flowers', juju: 'Juju' };
-// Which businesses are shown. Each can be switched on or off independently; all are on until changed.
-const SHOWN_KEY = 'flower-ledger-shown';
+const CATS = { flowers: '🌻', juju: '🧸', beads: '📿' };
+const CAT_NAMES = { flowers: 'Flowers', juju: 'Juju', beads: 'Beads' };
+// Which businesses are shown. Each can be switched on or off independently; all are on until changed, and a business
+// added since this device last saved its choice starts on.
+const SHOWN_KEY = 'flower-ledger-shown', SEEN_KEY = 'flower-ledger-seen';
 const shown = new Set((() => {
-  try { const v = JSON.parse(localStorage.getItem(SHOWN_KEY)); if (Array.isArray(v)) return v.filter(c => c in CATS); } catch {}
+  try {
+    const v = JSON.parse(localStorage.getItem(SHOWN_KEY));
+    if (Array.isArray(v)) {
+      const seen = JSON.parse(localStorage.getItem(SEEN_KEY)) || ['flowers', 'juju'];
+      return Object.keys(CATS).filter(c => v.includes(c) || !seen.includes(c));
+    }
+  } catch {}
   return Object.keys(CATS);
 })());
-const saveShown = () => { try { localStorage.setItem(SHOWN_KEY, JSON.stringify([...shown])); } catch {} };
+const saveShown = () => { try { localStorage.setItem(SHOWN_KEY, JSON.stringify([...shown])); localStorage.setItem(SEEN_KEY, JSON.stringify(Object.keys(CATS))); } catch {} };
 // The one business shown, or 'all' when several or none are, in which case new entries pick their business.
 const viewOf = () => shown.size === 1 ? [...shown][0] : 'all';
 const toggleCat = c => {
@@ -351,7 +363,7 @@ function renderLedger(d, type, total) {
     onkeydown: ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); startEdit(e.id); } } },
     h('td', {}, e.desc, view === 'all' ? h('span', { class: 'cat ' + e.category, title: CAT_NAMES[e.category] }, CATS[e.category]) : null, h('span', { class: 'when' }, fmtDate(e.date))), h('td', { class: 'amt' }, fmt(e.cents))));
   if (!list.length) rows.push(h('tr', { class: 'empty' }, h('td', { colspan: 2 },
-    shown.size ? `No ${TITLES[type].toLowerCase()} yet.` : 'Tick 🌻 or 🧸 above to see entries.')));
+    shown.size ? `No ${TITLES[type].toLowerCase()} yet.` : 'Tick 🌻, 🧸 or 📿 above to see entries.')));
 
   const desc = h('input', { class: 'field desc', name: 'desc', placeholder: 'Description', 'aria-label': 'Description', required: true, autocomplete: 'off' });
   const amt = h('input', { class: 'field amount', name: 'amount', placeholder: '0.00', inputmode: 'decimal', 'aria-label': 'Amount', required: true, autocomplete: 'off' });

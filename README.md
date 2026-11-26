@@ -8,6 +8,7 @@ This repo is the site at **https://dezzacodes.github.io/**:
 - https://dezzacodes.github.io/murakami/
 - https://dezzacodes.github.io/smiski/
 - https://dezzacodes.github.io/eyes/
+- https://dezzacodes.github.io/beads-inventory/
 
 (`/gym/` and `/rewards/` come from their own repos.)
 
@@ -21,7 +22,8 @@ Sortable, filterable pages of every flower and juju in the inventory spreadsheet
 - Each inventory folder's `images.json` holds that page's table thumbnails, resized to 360px WebP.
 - `murakami/index.html` is a grid of square photos from the sheet's murakami tab, which holds only photos: the sync reads along each row from A1 to the first empty cell, then the next row, stopping at the first row with nothing in column A. Thumbnails are in `murakami/images.json`.
 - `eyes/index.html` is a grid of photo tiles like murakami (each shows its from at the top and description at the bottom), with search and a Colour and From filter panel at the side like the other pages, from the sheet's eyes tab (headings in the top row: from, image, description; thumbnails in `eyes/images.json`).
-- `cj-money/index.html` is the Money page: income, expenses and the profit or loss. Its figures are not in this public repository. They live in `ledger.json` in the private repo `dezzaCodes/flower-ledger`, which the page reads and writes through the GitHub API. Each device is connected once with a fine-grained token that has **Contents: Read and write** on that repo only, and the token stays in that browser.
+- `beads-inventory/index.html` (Beads Inventory) has the same layout as the eyes page, from the sheet's **beads** tab (headings in the top row: from, image, description, colour). The Colour filter uses the colour column as typed. The sync finds the tab by its name (`NAMED_TABS` in sync.py) and skips the page until a tab called beads exists.
+- `cj-money/index.html` is the Money page: income, expenses and the profit or loss, each entry filed under one business: 🌻 flowers, 🧸 juju or 📿 beads. Its figures are not in this public repository. They live in `ledger.json` in the private repo `dezzaCodes/flower-ledger`, which the page reads and writes through the GitHub API. Each device is connected once with a fine-grained token that has **Contents: Read and write** on that repo only, and the token stays in that browser.
 - `photos/` holds a high-resolution copy of each photo (up to 2400px, WebP) for the detail panel, for both pages. Files are named by a hash of the original, so unchanged photos aren't re-encoded, and unused ones are deleted on sync.
 - A date column in the sheet named `purchased` (or `purchase date`, `date bought`, `date added`…) sets each row's date, and the site's column takes that name (any common date format; day-first unless the dates say otherwise). Where it's blank, the site uses the date the sync first saw the row:
   each sync records the date every row first appeared (`added` in the page data, shown as the Added column), keyed by each row's photo: a row's date is the first sync its photo appeared in, so filling in, editing or moving a row keeps its date, and replacing a row's photo counts as adding it. Rows without a photo are matched by their text instead. Rows present at the first sync (3 Oct 2026) show that date. The flower page sorts by it, newest first.

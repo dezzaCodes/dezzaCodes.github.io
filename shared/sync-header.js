@@ -1,5 +1,5 @@
 // The line under each sheet page's title: "Showing X of Y <items> · synced <time>" (the time links to the sheet) and
-// a sync button that runs the sheet sync on GitHub. Used by the flower, juju and eyes pages:
+// a sync button that runs the sheet sync on GitHub. Used by the flower, juju, eyes and beads pages:
 // SyncHeader(DATA, subElement) adds it and returns the element the page fills with its "Showing …" count.
 window.SyncHeader = (DATA, sub) => {
 const h = (tag, attrs = {}, ...kids) => {
