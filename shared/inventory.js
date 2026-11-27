@@ -128,7 +128,7 @@ const rank = m => { const k = ORDER.indexOf(m.name.toLowerCase()); return k < 0 
 // A "status" column (a dropdown in the sheet, one value per row) does the same when it says Sold; any other status
 // (e.g. ISO) shows as a label beside the name. Neither is shown as a column. Rows with a status (sold included) are
 // left out of the table and every count until that status's switch (Sold, ISO) in the Status section at the top of
-// the filter panel is on.
+// the filter panel is on, which then shows only the items with the statuses switched on.
 const SOLD_C = META.findIndex(m => m.name.toLowerCase() === 'sold');
 const STATUS_C = META.findIndex(m => m.name.toLowerCase() === 'status');
 const isSoldStatus = v => /^sold$/i.test(v.trim());
@@ -218,11 +218,10 @@ const chips = (m, v) => h('span', { class: 'swatches chips' }, splitCell(m.name,
 
 // Default sort: CFG.sortBy's column if the page names one, else the first column; ties go by the first column.
 // Sold and other status items start hidden on every visit (state.show holds the statuses switched on).
-// The Sold switch adds the sold items to the rest. Any other status's switch (ISO) shows only items with that status
-// (plus sold ones if Sold is on too).
+// With any switches on, only the items with those statuses show (Sold shows only sold items; Sold and ISO both).
 const state = { q: '', sort: { c: Math.max(0, colIdx(cfgName(CFG.sortBy))), dir: CFG.sortDir || 1 }, sel: new Map(), view: [],
   show: new Set() };
-const visible = r => ([...state.show].some(st => st !== 'Sold') ? state.show.has(r.hideAs) : !r.hideAs || state.show.has(r.hideAs));
+const visible = r => (state.show.size ? state.show.has(r.hideAs) : !r.hideAs);
 // How many rows the status switches allow, before search and filters.
 const inStock = () => ROWS.filter(visible).length;
 // The label beside a name: Sold, or the row's status.
